@@ -8,7 +8,7 @@ import re
 
 # Load list of channels
 channels = []
-with open("channels.txt", "a+") as f:
+with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
     f.seek(0)
     lines = f.readlines()
     for line in lines:
