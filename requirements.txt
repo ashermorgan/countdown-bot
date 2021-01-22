@@ -1,2 +1,3 @@
 discord
+matplotlib
 python-dotenv
