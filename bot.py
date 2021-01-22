@@ -119,7 +119,17 @@ class Countdown:
         """
 
         try:
-            self.addMessage(Message(rawMessage))
+            # Parse message
+            message = Message(rawMessage)
+
+            # Add message
+            self.addMessage(message)
+
+            # Mark important messages
+            if (message.number == 0):
+                await rawMessage.add_reaction("🥳")
+            if (message.number % 200 == 0):
+                await rawMessage.pin()
         except MessageNotAllowedError:
             await rawMessage.add_reaction("⛔")
         except MessageIncorrectError:
