@@ -226,7 +226,61 @@ async def on_message(obj):
 
 
 @bot.command()
+async def contributors(ctx):
+    """
+    Get information about countdown contributors
+    """
+
+    # Get messages
+    if (ctx.channel.id in channels):
+        countdown = countdowns[str(ctx.channel.id)]
+    else:
+        countdown = countdowns[str(channels[0])]
+
+    # Create temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    tmp.close()
+
+    # Get stats
+    stats = countdown.stats()
+
+    # Create plot
+    plt.close()
+    plt.title("Countdown Contributors")
+
+    # Add data to graph
+    x = [x["author"] for x in stats["contributors"]]
+    y = [x["contributors"] for x in stats["contributors"]]
+    plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
+
+    # Save graph
+    plt.savefig(tmp.name)
+    file = discord.File(tmp.name, filename="image.png")
+
+    # Create embed
+    embed=discord.Embed(title="Countdown Contributors")
+    embed.description = ""
+    for i in range(0, len(x)):
+        embed.description += f"**{i + 1}.** `{x[i]}` ({y[i]})\n"
+    embed.set_image(url="attachment://image.png")
+
+    # Send embed
+    await ctx.send(file=file, embed=embed)
+
+    # Remove temp file
+    try:
+        os.remove(tmp.name)
+    except:
+        print(f"Unable to delete temp file: {tmp.name}.")
+
+
+
+@bot.command()
 async def progress(ctx):
+    """
+    Get information about countdown progress
+    """
+
     # Get messages
     if (ctx.channel.id in channels):
         countdown = countdowns[str(ctx.channel.id)]
@@ -272,58 +326,21 @@ async def progress(ctx):
 
 
 
-@bot.command()
-async def contributors(ctx):
-    # Get messages
-    if (ctx.channel.id in channels):
-        countdown = countdowns[str(ctx.channel.id)]
-    else:
-        countdown = countdowns[str(channels[0])]
-
-    # Create temp file
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    tmp.close()
-
-    # Get stats
-    stats = countdown.stats()
-
-    # Create plot
-    plt.close()
-    plt.title("Countdown Contributors")
-
-    # Add data to graph
-    x = [x["author"] for x in stats["contributors"]]
-    y = [x["contributors"] for x in stats["contributors"]]
-    plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
-
-    # Save graph
-    plt.savefig(tmp.name)
-    file = discord.File(tmp.name, filename="image.png")
-
-    # Create embed
-    embed=discord.Embed(title="Countdown Contributors")
-    embed.description = ""
-    for i in range(0, len(x)):
-        embed.description += f"**{i + 1}**. `{x[i]}` ({y[i]})\n"
-    embed.set_image(url="attachment://image.png")
-
-    # Send embed
-    await ctx.send(file=file, embed=embed)
-
-    # Remove temp file
-    try:
-        os.remove(tmp.name)
-    except:
-        print(f"Unable to delete temp file: {tmp.name}.")
-
-
-
 # Command aliases
 @bot.command()
 async def c(ctx):
+    """
+    Alias for !count contributors
+    """
+
     await contributors(ctx)
+
 @bot.command()
 async def p(ctx):
+    """
+    Alias for !count progress
+    """
+
     await progress(ctx)
 
 
