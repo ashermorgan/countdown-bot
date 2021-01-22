@@ -318,6 +318,16 @@ async def contributors(ctx):
 
 
 
+# Command aliases
+@bot.command()
+async def c(ctx):
+    await contributors(ctx)
+@bot.command()
+async def p(ctx):
+    await progress(ctx)
+
+
+
 # Run bot
 load_dotenv()
 bot.run(os.getenv("DISCORD_TOKEN"))
