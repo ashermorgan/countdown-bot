@@ -1,8 +1,11 @@
 # Import dependencies
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from matplotlib import pyplot as plt
 import os
 import re
+import tempfile
 
 
 
@@ -164,6 +167,7 @@ class Countdown:
         return {
             "start": start,
             "current": current,
+            "percentage": (start - current) / start,
             "progress": progress,
             "contributions": contributions,
         }
@@ -183,7 +187,7 @@ with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = "!")
+bot = commands.Bot(command_prefix = "!count ")
 
 
 
@@ -195,7 +199,7 @@ async def on_ready():
     # Load messages
     for channel in channels:
         # Get messages
-        rawMessages = await bot.get_channel(channel).history(limit=1000).flatten()
+        rawMessages = await bot.get_channel(channel).history(limit=10100).flatten()
         rawMessages.reverse()
 
         # Create countdown
@@ -212,6 +216,57 @@ async def on_ready():
 async def on_message(obj):
     if (obj.channel.id in channels and obj.author.name != "countdown-bot"):
         await countdowns[str(obj.channel.id)].parseMessage(obj)
+    try:
+        await bot.process_commands(obj)
+    except:
+        pass
+
+
+
+@bot.command()
+async def progress(ctx):
+    # Get messages
+    if (ctx.channel.id in channels):
+        countdown = countdowns[str(ctx.channel.id)]
+    else:
+        countdown = countdowns[str(channels[0])]
+
+    # Create temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    tmp.close()
+
+    # Get stats
+    stats = countdown.stats()
+
+    # Create plot
+    plt.close()
+    plt.title("Countdown Progress")
+    plt.xlabel("Time")
+    plt.ylabel("Progress")
+    plt.gcf().autofmt_xdate()
+
+    # Add data to graph
+    x = [countdown.messages[0].timestamp] + [x["time"] for x in stats["progress"]]
+    y = [0] + [x["progress"] for x in stats["progress"]]
+    plt.plot(x, y)
+
+    # Save graph
+    plt.savefig(tmp.name)
+    file = discord.File(tmp.name, filename="image.png")
+
+    # Create embed
+    embed=discord.Embed(title="Countdown Progress")
+    embed.add_field(name="Progress", value=f"{stats['start'] - stats['current']} / {stats['start']} ({round(stats['percentage'], 2)}%)", inline=False)
+    embed.set_image(url="attachment://image.png")
+
+    # Send embed
+    await ctx.send(file=file, embed=embed)
+
+    # Remove temp file
+    try:
+        os.remove(tmp.name)
+    except:
+        print(f"Unable to delete temp file: {tmp.name}.")
 
 
 
