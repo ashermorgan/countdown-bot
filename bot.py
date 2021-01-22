@@ -43,6 +43,7 @@ class Message:
     def __init__(self, obj):
         self.channel    = obj.channel.id
         self.id         = obj.id
+        self.timestamp  = obj.created_at
         self.author     = f"{obj.author.name}#{obj.author.discriminator}"
         self.number     = int(re.findall("^[0-9,]+", obj.content)[0].replace(",",""))
 
@@ -122,6 +123,50 @@ class Countdown:
             await rawMessage.add_reaction("❌")
         except:
             pass
+
+    def stats(self):
+        """
+        Get countdown statistics.
+
+        Returns
+        -------
+        dict
+            A dictionary containing countdown statistics.
+        """
+
+        # Get start/current number
+        if (len(self.messages) > 0):
+            start = self.messages[0].number
+            current = self.messages[-1].number
+        else:
+            start = None
+            current = None
+
+        # Get list of progress
+        progress = []
+        for message in self.messages:
+            progress += [{
+                "time":message.timestamp,
+                "progress":message.number
+            }]
+
+        # Get author contributions
+        contributions = []
+        authors = list(set([x.author for x in self.messages]))
+        for author in authors:
+            contributions += [{
+                "author":author,
+                "contributions":len([x for x in self.messages if x.author == author]),
+            }]
+        contributions = sorted(contributions, key=lambda x: x["contributions"], reverse=True)
+
+        # Return stats
+        return {
+            "start": start,
+            "current": current,
+            "progress": progress,
+            "contributions": contributions,
+        }
 
 
 
