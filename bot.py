@@ -6,46 +6,132 @@ import re
 
 
 
-# Load list of channels
+# Global variables
 channels = []
+countdowns = {}
+
+
+
+# Error classes
+class MessageNotAllowedError(Exception):
+    """Raised when someone posts twice in a row."""
+    pass
+
+class MessageIncorrectError(Exception):
+    """Raised when someone posts an incorrect number."""
+    pass
+
+
+
+# Message class
+class Message:
+    """
+    Represents a single, valid, countdown message.
+
+    Attributes
+    ----------
+    id : int
+        The message ID.
+    channel : int
+        The channel ID.
+    author : str
+        The message author (ex: "user#0000").
+    number : int
+        The message content.
+    """
+
+    def __init__(self, obj):
+        self.channel    = obj.channel.id
+        self.id         = obj.id
+        self.author     = f"{obj.author.name}#{obj.author.discriminator}"
+        self.number     = int(re.findall("^[0-9,]+", obj.content)[0].replace(",",""))
+
+    def __str__(self) -> str:
+        return f"{self.author}: {self.number}"
+
+    def __eq__(self, o: object) -> bool:
+        if not isinstance(o, Message): return False
+        else: return self.id == o.id
+
+
+
+# Countdown class
+class Countdown:
+    """
+    Represents a countdown.
+
+    Attributes
+    ----------
+    messages : list
+        The (valid) messages belonging to the countdown.
+
+    Methods
+    -------
+    addMessage
+        Add a message to the list of messages.
+    parseMessage
+        Parse a message and adds it to the list of messages.
+    """
+
+    def __init__(self, messages):
+        self.messages = messages
+
+    def addMessage(self, message):
+        """
+        Add a message to the list of messages.
+
+        Parameters
+        ----------
+        message : Message
+            The message object.
+
+        Raises
+        ------
+        MessageNotAllowedError
+            If the author posted the last message.
+        MessageIncorrectError
+            If the message content is incorrect.
+        """
+
+        if (len(self.messages) != 0 and message.author == self.messages[-1].author):
+            raise MessageNotAllowedError()
+        elif (len(self.messages) != 0 and message.number + 1 != self.messages[-1].number):
+            raise MessageIncorrectError()
+        else:
+            self.messages += [message]
+
+    async def parseMessage(self, rawMessage):
+        """
+        Parse a message and add it to the list of messages.
+
+        Notes
+        -----
+        If the message is invalid or incorrect, a reacted will be added accordingly.
+
+        Parameters
+        ----------
+        rawMessage : obj
+            The raw Discord message object.
+        """
+
+        try:
+            self.addMessage(Message(rawMessage))
+        except MessageNotAllowedError:
+            await rawMessage.add_reaction("⛔")
+        except MessageIncorrectError:
+            await rawMessage.add_reaction("❌")
+        except:
+            pass
+
+
+
+# Load list of channels
 with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
     f.seek(0)
     lines = f.readlines()
     for line in lines:
         try:
             channels += [int(line)]
-        except:
-            pass
-
-
-
-class Message:
-    def __init__(self, obj):
-        self.channel    = obj.channel.id
-        self.number     = int(re.findall("^[0-9,]+", obj.content)[0].replace(",",""))
-        self.author     = f"{obj.author.name}#{obj.author.discriminator}"
-
-
-
-async def loadMessages(channel, depth=1000):
-    # Read messages
-    messages = await channel.history(limit=depth).flatten()
-    messages.reverse()
-
-    # Parse messages
-    parsedMessages = []
-    for message in messages:
-        try:
-            # Parse message
-            parsedMessage = Message(message)
-
-            # Process message
-            if (len(parsedMessages) != 0 and parsedMessage.author == parsedMessages[-1].author):
-                await message.add_reaction("⛔")
-            elif (len(parsedMessages) != 0 and parsedMessage.number + 1 != parsedMessages[-1].number):
-                await message.add_reaction("❌")
-            else:
-                parsedMessages += [parsedMessage]
         except:
             pass
 
@@ -58,13 +144,29 @@ bot = commands.Bot(command_prefix = "!")
 
 @bot.event
 async def on_ready():
+    # Print status
+    print(f"Connected to Discord as {bot.user}")
+
+    # Load messages
     for channel in channels:
-        await loadMessages(bot.get_channel(channel))
+        # Get messages
+        rawMessages = await bot.get_channel(channel).history(limit=1000).flatten()
+        rawMessages.reverse()
+
+        # Create countdown
+        countdowns[str(channel)] = Countdown([])
+
+        # Load messages
+        for rawMessage in rawMessages:
+            await countdowns[str(channel)].parseMessage(rawMessage)
+
+        # Print status
+        print(f"Loaded messages from {bot.get_channel(channel)}")
 
 @bot.event
 async def on_message(obj):
     if (obj.channel.id in channels and obj.author.name != "countdown-bot"):
-        await loadMessages(bot.get_channel(obj.channel.id), depth=15)
+        await countdowns[str(obj.channel.id)].parseMessage(obj)
 
 
 
