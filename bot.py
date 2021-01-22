@@ -141,9 +141,11 @@ class Countdown:
         if (len(self.messages) > 0):
             start = self.messages[0].number
             current = self.messages[-1].number
+            percentage = (start - current) / start * 100
         else:
             start = None
             current = None
+            percentage = 0
 
         # Get list of progress
         progress = []
@@ -153,23 +155,23 @@ class Countdown:
                 "progress":message.number
             }]
 
-        # Get author contributions
-        contributions = []
+        # Get author contributors
+        contributors = []
         authors = list(set([x.author for x in self.messages]))
         for author in authors:
-            contributions += [{
+            contributors += [{
                 "author":author,
-                "contributions":len([x for x in self.messages if x.author == author]),
+                "contributors":len([x for x in self.messages if x.author == author]),
             }]
-        contributions = sorted(contributions, key=lambda x: x["contributions"], reverse=True)
+        contributors = sorted(contributors, key=lambda x: x["contributors"], reverse=True)
 
         # Return stats
         return {
             "start": start,
             "current": current,
-            "percentage": (start - current) / start,
+            "percentage": percentage,
             "progress": progress,
-            "contributions": contributions,
+            "contributors": contributors,
         }
 
 
@@ -256,7 +258,53 @@ async def progress(ctx):
 
     # Create embed
     embed=discord.Embed(title="Countdown Progress")
-    embed.add_field(name="Progress", value=f"{stats['start'] - stats['current']} / {stats['start']} ({round(stats['percentage'], 2)}%)", inline=False)
+    embed.description = f"{stats['start'] - stats['current']} / {stats['start']} ({round(stats['percentage'], 2)}%)"
+    embed.set_image(url="attachment://image.png")
+
+    # Send embed
+    await ctx.send(file=file, embed=embed)
+
+    # Remove temp file
+    try:
+        os.remove(tmp.name)
+    except:
+        print(f"Unable to delete temp file: {tmp.name}.")
+
+
+
+@bot.command()
+async def contributors(ctx):
+    # Get messages
+    if (ctx.channel.id in channels):
+        countdown = countdowns[str(ctx.channel.id)]
+    else:
+        countdown = countdowns[str(channels[0])]
+
+    # Create temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    tmp.close()
+
+    # Get stats
+    stats = countdown.stats()
+
+    # Create plot
+    plt.close()
+    plt.title("Countdown Contributors")
+
+    # Add data to graph
+    x = [x["author"] for x in stats["contributors"]]
+    y = [x["contributors"] for x in stats["contributors"]]
+    plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
+
+    # Save graph
+    plt.savefig(tmp.name)
+    file = discord.File(tmp.name, filename="image.png")
+
+    # Create embed
+    embed=discord.Embed(title="Countdown Contributors")
+    embed.description = ""
+    for i in range(0, len(x)):
+        embed.description += f"**{i + 1}**. `{x[i]}` ({y[i]})\n"
     embed.set_image(url="attachment://image.png")
 
     # Send embed
