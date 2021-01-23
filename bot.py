@@ -1,5 +1,5 @@
 # Import dependencies
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -13,7 +13,7 @@ import tempfile
 # Global variables
 channels = []
 countdowns = {}
-TIMEZONE = -8
+TIMEZONE = -8  # America/Los_Angeles
 
 
 
@@ -155,15 +155,19 @@ class Countdown:
             current = self.messages[-1].number
             percentage = (total - current) / total * 100
             start = self.messages[0].timestamp
-            rate = (total - current)/((self.messages[-1].timestamp - self.messages[0].timestamp) + timedelta(hours=TIMEZONE) + timedelta(days=1)).days
-            eta = (datetime.now() + timedelta(hours=TIMEZONE) + timedelta(days=current/rate)).date()
         else:
             total = 0
             current = 0
             percentage = 0
-            start = datetime.now()
+            start = datetime.utcnow()
+
+        # Get rate statistics
+        if (len(self.messages) > 1):
+            rate = (total - current)/((self.messages[-1].timestamp - self.messages[0].timestamp) / timedelta(days=1))
+            eta = datetime.utcnow() + timedelta(days=current/rate)
+        else:
             rate = 0
-            eta = date.today()
+            eta = datetime.utcnow()
 
         # Get list of progress
         progress = []
@@ -323,7 +327,7 @@ async def progress(ctx):
     plt.gcf().autofmt_xdate()
 
     # Add data to graph
-    x = [countdown.messages[0].timestamp] + [x["time"] for x in stats["progress"]]
+    x = [stats['start']] + [x["time"] for x in stats["progress"]]
     y = [0] + [x["progress"] for x in stats["progress"]]
     plt.plot(x, y)
 
@@ -331,12 +335,19 @@ async def progress(ctx):
     plt.savefig(tmp.name)
     file = discord.File(tmp.name, filename="image.png")
 
+    # Calculate embed data
+    start = (stats['start'] + timedelta(hours=TIMEZONE)).date()
+    startDiff = (datetime.utcnow() - stats['start']).days
+    end = (stats['eta'] + timedelta(hours=TIMEZONE)).date()
+    endDiff = (stats['eta'] - datetime.utcnow()).days
+    if endDiff < 0: endDiff = 0
+
     # Create embed
     embed=discord.Embed(title="Countdown Progress")
     embed.description = f"**Progress:** {stats['total'] - stats['current']} / {stats['total']} ({round(stats['percentage'], 2)}%)\n"
-    embed.description += f"**Average Progress per Day:** {stats['rate']}\n"
-    embed.description += f"**Start Date:** {stats['start'].date()} ({(datetime.now() - stats['start']).days} days ago)\n"
-    embed.description += f"**Estimated End Date:** {stats['eta']} ({(stats['eta'] - date.today()).days} days from now)\n"
+    embed.description += f"**Average Progress per Day:** {round(stats['rate'], 2)}\n"
+    embed.description += f"**Start Date:** {start} ({startDiff} days ago)\n"
+    embed.description += f"**Estimated End Date:** {end} ({endDiff} days from now)\n"
     embed.set_image(url="attachment://image.png")
 
     # Send embed
