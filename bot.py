@@ -214,7 +214,7 @@ with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = "!count ")
+bot = commands.Bot(command_prefix = ["!count ", "!c "])
 
 
 
