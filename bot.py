@@ -1,4 +1,5 @@
 # Import dependencies
+from datetime import date, datetime, timedelta
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ import tempfile
 # Global variables
 channels = []
 countdowns = {}
+TIMEZONE = -8
 
 
 
@@ -147,15 +149,21 @@ class Countdown:
             A dictionary containing countdown statistics.
         """
 
-        # Get start/current number
+        # Get basic statistics
         if (len(self.messages) > 0):
-            start = self.messages[0].number
+            total = self.messages[0].number
             current = self.messages[-1].number
-            percentage = (start - current) / start * 100
+            percentage = (total - current) / total * 100
+            start = self.messages[0].timestamp
+            rate = (total - current)/((self.messages[-1].timestamp - self.messages[0].timestamp) + timedelta(hours=TIMEZONE) + timedelta(days=1)).days
+            eta = (datetime.now() + timedelta(hours=TIMEZONE) + timedelta(days=current/rate)).date()
         else:
-            start = None
-            current = None
+            total = 0
+            current = 0
             percentage = 0
+            start = datetime.now()
+            rate = 0
+            eta = date.today()
 
         # Get list of progress
         progress = []
@@ -177,11 +185,14 @@ class Countdown:
 
         # Return stats
         return {
-            "start": start,
+            "total": total,
             "current": current,
             "percentage": percentage,
             "progress": progress,
             "contributors": contributors,
+            "start": start,
+            "rate": rate,
+            "eta": eta,
         }
 
 
@@ -271,7 +282,7 @@ async def contributors(ctx):
     embed=discord.Embed(title="Countdown Contributors")
     embed.description = ""
     for i in range(0, len(x)):
-        embed.description += f"**{i + 1}.** `{x[i]}` ({y[i]})\n"
+        embed.description += f"**{i + 1}.** `{x[i]}` ({y[i]} contributions)\n"
     embed.set_image(url="attachment://image.png")
 
     # Send embed
@@ -322,7 +333,10 @@ async def progress(ctx):
 
     # Create embed
     embed=discord.Embed(title="Countdown Progress")
-    embed.description = f"{stats['start'] - stats['current']} / {stats['start']} ({round(stats['percentage'], 2)}%)"
+    embed.description = f"**Progress:** {stats['total'] - stats['current']} / {stats['total']} ({round(stats['percentage'], 2)}%)\n"
+    embed.description += f"**Average Progress per Day:** {stats['rate']}\n"
+    embed.description += f"**Start Date:** {stats['start'].date()} ({(datetime.now() - stats['start']).days} days ago)\n"
+    embed.description += f"**Estimated End Date:** {stats['eta']} ({(stats['eta'] - date.today()).days} days from now)\n"
     embed.set_image(url="attachment://image.png")
 
     # Send embed
