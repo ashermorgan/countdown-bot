@@ -327,7 +327,7 @@ async def progress(ctx):
     plt.gcf().autofmt_xdate()
 
     # Add data to graph
-    x = [stats['start']] + [x["time"] for x in stats["progress"]]
+    x = [stats["start"] + timedelta(hours=TIMEZONE)] + [x["time"] + timedelta(hours=TIMEZONE) for x in stats["progress"]]
     y = [0] + [x["progress"] for x in stats["progress"]]
     plt.plot(x, y)
 
@@ -336,10 +336,10 @@ async def progress(ctx):
     file = discord.File(tmp.name, filename="image.png")
 
     # Calculate embed data
-    start = (stats['start'] + timedelta(hours=TIMEZONE)).date()
-    startDiff = (datetime.utcnow() - stats['start']).days
-    end = (stats['eta'] + timedelta(hours=TIMEZONE)).date()
-    endDiff = (stats['eta'] - datetime.utcnow()).days
+    start = (stats["start"] + timedelta(hours=TIMEZONE)).date()
+    startDiff = (datetime.utcnow() - stats["start"]).days
+    end = (stats["eta"] + timedelta(hours=TIMEZONE)).date()
+    endDiff = (stats["eta"] - datetime.utcnow()).days
     if endDiff < 0: endDiff = 0
 
     # Create embed
