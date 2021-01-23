@@ -361,6 +361,33 @@ async def progress(ctx):
 
 
 
+@bot.command()
+async def refresh(ctx):
+    """
+    Refreshes the countdown.
+    """
+
+    if (ctx.channel.id in channels):
+        # Get messages
+        rawMessages = await bot.get_channel(ctx.channel.id).history(limit=10100).flatten()
+        rawMessages.reverse()
+
+        # Create countdown
+        countdowns[str(ctx.channel.id)] = Countdown([])
+
+        # Load messages
+        for rawMessage in rawMessages:
+            await countdowns[str(ctx.channel.id)].parseMessage(rawMessage)
+
+        # Print status
+        print(f"Reloaded messages from {bot.get_channel(ctx.channel.id)}")
+        await ctx.channel.send("Done!")
+
+    else:
+        await ctx.channel.send("This command must be used in the countdown channel")
+
+
+
 # Command aliases
 @bot.command()
 async def c(ctx):
