@@ -272,7 +272,7 @@ with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = ["!count ", "!c "])
+bot = commands.Bot(command_prefix = ["!countdown ", "!count ", "!c "])
 
 
 
@@ -342,9 +342,16 @@ async def contributors(ctx):
 
     # Create embed
     embed=discord.Embed(title="Countdown Contributors")
-    embed.description = ""
+    ranks = ""
+    users = ""
+    contributions = ""
     for i in range(0, len(x)):
-        embed.description += f"**{i + 1}.** `{x[i]}` ({y[i]} contributions)\n"
+        ranks += f"{i+1}\n"
+        contributions += f"{y[i]:,}\n"
+        users += f"{x[i]}\n"
+    embed.add_field(name="Rank",value=ranks, inline=True)
+    embed.add_field(name="User",value=users, inline=True)
+    embed.add_field(name="Contributions",value=contributions, inline=True)
     embed.set_image(url="attachment://image.png")
 
     # Send embed
