@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import math
 from matplotlib import pyplot as plt
 import os
 import re
@@ -200,6 +201,63 @@ class Countdown:
         }
 
 
+    def leaderboard(self):
+        if (len(self.messages) == 0):
+            return []
+
+        # Get list of prime numbers
+        curTest = 5
+        search = 1
+        primes = [2, 3]
+        while curTest < self.messages[0].number:
+            if curTest%(primes[search]) == 0:
+                curTest = curTest + 2
+                search = 1
+            else:
+                if primes[search] > math.sqrt(curTest):
+                    primes.append(curTest)
+                    curTest = curTest + 2
+                    search = 1
+                else:
+                    search = search + 1
+
+        # Calculate contributor points
+        points = {}
+        for message in self.messages:
+            if (message.author not in points):
+                points[message.author] = 0
+            if (message.number == self.messages[0].number):
+                points[message.author] += 0
+            elif (message.number % 1000 == 0):
+                points[message.author] += 1000
+            elif (message.number % 1000 == 1):
+                points[message.author] += 500
+            elif (message.number % 200 == 0):
+                points[message.author] += 200
+            elif (message.number % 200 == 1):
+                points[message.author] += 100
+            elif (message.number % 100 == 0):
+                points[message.author] += 100
+            elif (message.number % 100 == 1):
+                points[message.author] += 50
+            elif (message.number in primes):
+                points[message.author] += 15
+            elif (message.number % 2 == 1):
+                points[message.author] += 12
+            else:
+                points[message.author] += 10
+
+        # Create ranked leaderboard
+        leaderboard = []
+        for author in points:
+            leaderboard += [{
+                "author":author,
+                "points":points[author]
+            }]
+        leaderboard = sorted(leaderboard, key=lambda x: x["points"], reverse=True)
+        return leaderboard
+
+
 
 # Load list of channels
 with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
@@ -250,10 +308,10 @@ async def on_message(obj):
 
 
 
-@bot.command()
+@bot.command(aliases=["c"])
 async def contributors(ctx):
     """
-    Get information about countdown contributors
+    Shows information about countdown contributors
     """
 
     # Get messages
@@ -300,10 +358,70 @@ async def contributors(ctx):
 
 
 
-@bot.command()
+@bot.command(aliases=["l"])
+async def leaderboard(ctx):
+    """
+    Shows the countdown leaderboard
+    """
+
+    # Get countdown
+    if (ctx.channel.id in channels):
+        countdown = countdowns[str(ctx.channel.id)]
+    else:
+        countdown = countdowns[str(channels[0])]
+
+    # Get leaderboard
+    leaderboard = countdown.leaderboard()
+
+    # Create embed
+    embed=discord.Embed(title="Countdown Leaderboard")
+
+    # Add leaderboard
+    ranks = ""
+    points = ""
+    users = ""
+    for i in range(0, len(leaderboard)):
+        ranks += f"{i+1}\n"
+        points += f"{leaderboard[i]['points']:,}\n"
+        users += f"{leaderboard[i]['author']}\n"
+    embed.add_field(name="Rank",value=ranks, inline=True)
+    embed.add_field(name="Points",value=points, inline=True)
+    embed.add_field(name="User",value=users, inline=True)
+
+    # Add leaderboard rules
+    rules = "1000s\n" \
+            "1001s\n" \
+            "200s\n" \
+            "201s\n" \
+            "100s\n" \
+            "101s\n" \
+            "Prime Numbers\n" \
+            "Odd Numbers\n" \
+            "Even Numbers\n" \
+            "First Number\n"
+    values = "1000 points\n" \
+            "500 points\n" \
+            "200 points\n" \
+            "100 points\n" \
+            "100 points\n" \
+            "50 points\n" \
+            "15 points\n" \
+            "12 points\n" \
+            "10 points\n" \
+            "0 points\n"
+    embed.add_field(name="Rules", value="Only 1 rule is applied towards each number", inline=False)
+    embed.add_field(name="Numbers", value=rules, inline=True)
+    embed.add_field(name="Points", value=values, inline=True)
+
+    # Send embed
+    await ctx.send(embed=embed)
+
+
+
+@bot.command(aliases=["p"])
 async def progress(ctx):
     """
-    Get information about countdown progress
+    Shows information about countdown progress
     """
 
     # Get messages
@@ -362,9 +480,9 @@ async def progress(ctx):
 
 
 @bot.command()
-async def refresh(ctx):
+async def reload(ctx):
     """
-    Refreshes the countdown.
+    Reloads the countdown cache
     """
 
     if (ctx.channel.id in channels):
@@ -388,25 +506,7 @@ async def refresh(ctx):
 
 
 
-# Command aliases
-@bot.command()
-async def c(ctx):
-    """
-    Alias for !count contributors
-    """
-
-    await contributors(ctx)
-
-@bot.command()
-async def p(ctx):
-    """
-    Alias for !count progress
-    """
-
-    await progress(ctx)
-
-
-
 # Run bot
-load_dotenv()
-bot.run(os.getenv("DISCORD_TOKEN"))
+if (__name__ == "__main__"):
+    load_dotenv()
+    bot.run(os.getenv("DISCORD_TOKEN"))
