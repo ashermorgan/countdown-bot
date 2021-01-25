@@ -225,35 +225,55 @@ class Countdown:
         points = {}
         for message in self.messages:
             if (message.author not in points):
-                points[message.author] = 0
+                points[message.author] = {
+                    "author": message.author,
+                    "points": 0,
+                    "breakdown": {
+                        "1000s": 0,
+                        "1001s": 0,
+                        "200s": 0,
+                        "201s": 0,
+                        "100s": 0,
+                        "101s": 0,
+                        "Prime Numbers": 0,
+                        "Odd Numbers": 0,
+                        "Even Numbers": 0,
+                        "First Number": 0,
+                    },
+                }
             if (message.number == self.messages[0].number):
-                points[message.author] += 0
+                points[message.author]["points"] += 0
+                points[message.author]["breakdown"]["First Number"] += 0
             elif (message.number % 1000 == 0):
-                points[message.author] += 1000
+                points[message.author]["points"] += 1000
+                points[message.author]["breakdown"]["1000s"] += 1000
             elif (message.number % 1000 == 1):
-                points[message.author] += 500
+                points[message.author]["points"] += 500
+                points[message.author]["breakdown"]["1001s"] += 500
             elif (message.number % 200 == 0):
-                points[message.author] += 200
+                points[message.author]["points"] += 200
+                points[message.author]["breakdown"]["200s"] += 200
             elif (message.number % 200 == 1):
-                points[message.author] += 100
+                points[message.author]["points"] += 100
+                points[message.author]["breakdown"]["201s"] += 100
             elif (message.number % 100 == 0):
-                points[message.author] += 100
+                points[message.author]["points"] += 100
+                points[message.author]["breakdown"]["100s"] += 100
             elif (message.number % 100 == 1):
-                points[message.author] += 50
+                points[message.author]["points"] += 50
+                points[message.author]["breakdown"]["101s"] += 50
             elif (message.number in primes):
-                points[message.author] += 15
+                points[message.author]["points"] += 15
+                points[message.author]["breakdown"]["Prime Numbers"] += 15
             elif (message.number % 2 == 1):
-                points[message.author] += 12
+                points[message.author]["points"] += 12
+                points[message.author]["breakdown"]["Odd Numbers"] += 12
             else:
-                points[message.author] += 10
+                points[message.author]["points"] += 10
+                points[message.author]["breakdown"]["Even Numbers"] += 10
 
         # Create ranked leaderboard
-        leaderboard = []
-        for author in points:
-            leaderboard += [{
-                "author":author,
-                "points":points[author]
-            }]
+        leaderboard = [points[x] for x in points]
         leaderboard = sorted(leaderboard, key=lambda x: x["points"], reverse=True)
         return leaderboard
 
@@ -366,7 +386,7 @@ async def contributors(ctx):
 
 
 @bot.command(aliases=["l"])
-async def leaderboard(ctx):
+async def leaderboard(ctx, user=None):
     """
     Shows the countdown leaderboard
     """
@@ -383,42 +403,70 @@ async def leaderboard(ctx):
     # Create embed
     embed=discord.Embed(title="Countdown Leaderboard")
 
-    # Add leaderboard
-    ranks = ""
-    points = ""
-    users = ""
-    for i in range(0, len(leaderboard)):
-        ranks += f"{i+1}\n"
-        points += f"{leaderboard[i]['points']:,}\n"
-        users += f"{leaderboard[i]['author']}\n"
-    embed.add_field(name="Rank",value=ranks, inline=True)
-    embed.add_field(name="Points",value=points, inline=True)
-    embed.add_field(name="User",value=users, inline=True)
+    if (user is None):
+        # Add leaderboard
+        ranks = ""
+        points = ""
+        users = ""
+        for i in range(0, len(leaderboard)):
+            ranks += f"{i+1}\n"
+            points += f"{leaderboard[i]['points']:,}\n"
+            users += f"{leaderboard[i]['author']}\n"
+        embed.add_field(name="Rank",value=ranks, inline=True)
+        embed.add_field(name="Points",value=points, inline=True)
+        embed.add_field(name="User",value=users, inline=True)
 
-    # Add leaderboard rules
-    rules = "1000s\n" \
-            "1001s\n" \
-            "200s\n" \
-            "201s\n" \
-            "100s\n" \
-            "101s\n" \
-            "Prime Numbers\n" \
-            "Odd Numbers\n" \
-            "Even Numbers\n" \
-            "First Number\n"
-    values = "1000 points\n" \
-            "500 points\n" \
-            "200 points\n" \
-            "100 points\n" \
-            "100 points\n" \
-            "50 points\n" \
-            "15 points\n" \
-            "12 points\n" \
-            "10 points\n" \
-            "0 points\n"
-    embed.add_field(name="Rules", value="Only 1 rule is applied towards each number", inline=False)
-    embed.add_field(name="Numbers", value=rules, inline=True)
-    embed.add_field(name="Points", value=values, inline=True)
+        # Add leaderboard rules
+        rules = "1000s\n" \
+                "1001s\n" \
+                "200s\n" \
+                "201s\n" \
+                "100s\n" \
+                "101s\n" \
+                "Prime Numbers\n" \
+                "Odd Numbers\n" \
+                "Even Numbers\n" \
+                "First Number\n"
+        values = "1000 points\n" \
+                "500 points\n" \
+                "200 points\n" \
+                "100 points\n" \
+                "100 points\n" \
+                "50 points\n" \
+                "15 points\n" \
+                "12 points\n" \
+                "10 points\n" \
+                "0 points\n"
+        embed.add_field(name="Rules", value="Only 1 rule is applied towards each number", inline=False)
+        embed.add_field(name="Numbers", value=rules, inline=True)
+        embed.add_field(name="Points", value=values, inline=True)
+    else:
+        # Get user rank
+        temp = [x["author"].startswith(user) for x in leaderboard]
+        if (True not in temp):
+            await ctx.send("User not found.")
+            return
+        rank = temp.index(True)
+        
+        # Add description
+        embed.description = f"**Point Breakdown for:** {leaderboard[rank]['author']}\n"
+        embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
+        embed.description += f"**Rank:** {rank + 1}\n"
+
+        # Add points breakdown
+        rules = ""
+        points = ""
+        percentage = ""
+        for category in leaderboard[rank]["breakdown"]:
+            rules += f"{category}\n"
+            points += f"{leaderboard[rank]['breakdown'][category]:,}\n"
+            if (leaderboard[rank]['points'] > 0):
+                percentage += f"{round(leaderboard[rank]['breakdown'][category] / leaderboard[rank]['points'] * 100, 1)}%\n"
+            else:
+                percentage += "0%\n"
+        embed.add_field(name="Category", value=rules, inline=True)
+        embed.add_field(name="Points", value=points, inline=True)
+        embed.add_field(name="Percentage", value=percentage, inline=True)
 
     # Send embed
     await ctx.send(embed=embed)
