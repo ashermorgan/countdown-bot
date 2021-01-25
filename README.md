@@ -1,7 +1,9 @@
 # countdown-bot
 A Discord bot to facilitate countdowns.
 
-# Setup
+
+
+## Setup
 1. Install the Python dependencies
     ```
     pip install -r requirements.txt
@@ -24,3 +26,45 @@ A Discord bot to facilitate countdowns.
     ```
     python bot.py
     ```
+
+
+
+## Behavior
+- When a user posts out of turn the bot reacts to the message with ⛔.
+- When a user posts an incorrect number the bot reacts to the message with ❌.
+- When a user posts a number divisible by 200 the bot pins it.
+- When a user posts 0 the bot reacts with 🥳.
+
+
+
+## Commands
+If a command is not run in a countdown channel, the bot will run it for the 1st countdown channel.
+
+### contributors
+**Description:** Shows information about countdown contributors
+
+**Usage:** `!countdown contributors|c`
+
+
+### help
+**Description:** Shows help information
+
+**Usage:** `!countdown help [command]`
+
+
+### leaderboard
+**Description:** Shows the countdown leaderboard
+
+**Usage:** `!countdown leaderboard|l [user]`
+
+
+### progress
+**Description:** Shows information about countdown progress
+
+**Usage:** `!countdown progress|p`
+
+
+### reload
+**Description:** Reloads the countdown cache
+
+**Usage:** `!countdown reload`
