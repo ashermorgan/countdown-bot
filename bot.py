@@ -317,6 +317,8 @@ async def on_ready():
         # Print status
         print(f"Loaded messages from {bot.get_channel(channel)}")
 
+
+
 @bot.event
 async def on_message(obj):
     if (obj.channel.id in channels and obj.author.name != "countdown-bot"):
@@ -325,6 +327,12 @@ async def on_message(obj):
         await bot.process_commands(obj)
     except:
         pass
+
+
+
+@bot.event
+async def on_command_error(ctx, error):
+    await ctx.send(f"Error: {error}")
 
 
 
