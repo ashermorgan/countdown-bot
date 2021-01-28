@@ -348,6 +348,11 @@ async def contributors(ctx):
     else:
         countdown = countdowns[str(channels[0])]
 
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        await ctx.send("Error: The countdown is empty.")
+        return
+
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
@@ -405,7 +410,12 @@ async def leaderboard(ctx, user=None):
     else:
         countdown = countdowns[str(channels[0])]
 
-    # Get leaderboard
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        await ctx.send("Error: The countdown is empty.")
+        return
+
+   # Get leaderboard
     leaderboard = countdown.leaderboard()
 
     # Create embed
@@ -455,7 +465,7 @@ async def leaderboard(ctx, user=None):
             await ctx.send("User not found.")
             return
         rank = temp.index(True)
-        
+
         # Add description
         embed.description = f"**Point Breakdown for:** {leaderboard[rank]['author']}\n"
         embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
@@ -493,7 +503,12 @@ async def progress(ctx):
     else:
         countdown = countdowns[str(channels[0])]
 
-    # Create temp file
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        await ctx.send("Error: The countdown is empty.")
+        return
+
+   # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
