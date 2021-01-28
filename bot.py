@@ -29,6 +29,26 @@ class MessageIncorrectError(Exception):
 
 
 
+async def getUsername(id):
+    """
+    Get a username from a user ID.
+
+    Parameters
+    ----------
+    id : int
+        The user ID.
+
+    Returns
+    -------
+    str
+        The username (ex: "user#0000").
+    """
+
+    user = await bot.fetch_user(id)
+    return f"{user.name}#{user.discriminator}"
+
+
+
 # Message class
 class Message:
     """
@@ -40,8 +60,8 @@ class Message:
         The message ID.
     channel : int
         The channel ID.
-    author : str
-        The message author (ex: "user#0000").
+    author : int
+        The message author ID.
     number : int
         The message content.
     """
@@ -50,11 +70,8 @@ class Message:
         self.channel    = obj.channel.id
         self.id         = obj.id
         self.timestamp  = obj.created_at
-        self.author     = f"{obj.author.name}#{obj.author.discriminator}"
+        self.author     = obj.author.id
         self.number     = int(re.findall("^[0-9,]+", obj.content)[0].replace(",",""))
-
-    def __str__(self) -> str:
-        return f"{self.author}: {self.number}"
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, Message): return False
@@ -140,14 +157,14 @@ class Countdown:
         except:
             pass
 
-    def stats(self):
+    def progress(self):
         """
-        Get countdown statistics.
+        Get countdown progress statistics.
 
         Returns
         -------
         dict
-            A dictionary containing countdown statistics.
+            A dictionary containing countdown progress statistics.
         """
 
         # Get basic statistics
@@ -171,22 +188,7 @@ class Countdown:
             eta = datetime.utcnow()
 
         # Get list of progress
-        progress = []
-        for message in self.messages:
-            progress += [{
-                "time":message.timestamp,
-                "progress":message.number
-            }]
-
-        # Get author contributors
-        contributors = []
-        authors = list(set([x.author for x in self.messages]))
-        for author in authors:
-            contributors += [{
-                "author":author,
-                "contributors":len([x for x in self.messages if x.author == author]),
-            }]
-        contributors = sorted(contributors, key=lambda x: x["contributors"], reverse=True)
+        progress = [{"time":x.timestamp, "progress":x.number} for x in self.messages]
 
         # Return stats
         return {
@@ -194,14 +196,48 @@ class Countdown:
             "current": current,
             "percentage": percentage,
             "progress": progress,
-            "contributors": contributors,
             "start": start,
             "rate": rate,
             "eta": eta,
         }
 
+    def contributors(self):
+        """
+        Get countdown contributor statistics.
+
+        Returns
+        -------
+        list
+            A list of contributor statistics.
+        """
+
+        # Get contributors
+        authors = list(set([x.author for x in self.messages]))
+
+        # Get contributions
+        contributors = []
+        for author in authors:
+            contributors += [{
+                "author":author,
+                "contributions":len([x for x in self.messages if x.author == author]),
+            }]
+
+        # Sort contributors by contributions
+        contributors = sorted(contributors, key=lambda x: x["contributions"], reverse=True)
+
+        # Return contributors
+        return contributors
 
     def leaderboard(self):
+        """
+        Get countdown leaderboard.
+
+        Returns
+        -------
+        list
+            The leaderboard.
+        """
+
         if (len(self.messages) == 0):
             return []
 
@@ -308,11 +344,11 @@ async def on_ready():
         rawMessages.reverse()
 
         # Create countdown
-        countdowns[str(channel)] = Countdown([])
+        countdowns[channel] = Countdown([])
 
         # Load messages
         for rawMessage in rawMessages:
-            await countdowns[str(channel)].parseMessage(rawMessage)
+            await countdowns[channel].parseMessage(rawMessage)
 
         # Print status
         print(f"Loaded messages from {bot.get_channel(channel)}")
@@ -322,7 +358,7 @@ async def on_ready():
 @bot.event
 async def on_message(obj):
     if (obj.channel.id in channels and obj.author.name != "countdown-bot"):
-        await countdowns[str(obj.channel.id)].parseMessage(obj)
+        await countdowns[obj.channel.id].parseMessage(obj)
     try:
         await bot.process_commands(obj)
     except:
@@ -344,9 +380,9 @@ async def contributors(ctx):
 
     # Get messages
     if (ctx.channel.id in channels):
-        countdown = countdowns[str(ctx.channel.id)]
+        countdown = countdowns[ctx.channel.id]
     else:
-        countdown = countdowns[str(channels[0])]
+        countdown = countdowns[channels[0]]
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
@@ -358,15 +394,15 @@ async def contributors(ctx):
     tmp.close()
 
     # Get stats
-    stats = countdown.stats()
+    contributors = countdown.contributors()
 
     # Create plot
     plt.close()
     plt.title("Countdown Contributors")
 
     # Add data to graph
-    x = [x["author"] for x in stats["contributors"]]
-    y = [x["contributors"] for x in stats["contributors"]]
+    x = [await getUsername(x["author"]) for x in contributors]
+    y = [x["contributions"] for x in contributors]
     plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
 
     # Save graph
@@ -379,7 +415,7 @@ async def contributors(ctx):
     users = ""
     contributions = ""
     for i in range(0, len(x)):
-        ranks += f"{i+1}\n"
+        ranks += f"{i+1:,}\n"
         contributions += f"{y[i]:,}\n"
         users += f"{x[i]}\n"
     embed.add_field(name="Rank",value=ranks, inline=True)
@@ -406,9 +442,9 @@ async def leaderboard(ctx, user=None):
 
     # Get countdown
     if (ctx.channel.id in channels):
-        countdown = countdowns[str(ctx.channel.id)]
+        countdown = countdowns[ctx.channel.id]
     else:
-        countdown = countdowns[str(channels[0])]
+        countdown = countdowns[channels[0]]
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
@@ -427,9 +463,9 @@ async def leaderboard(ctx, user=None):
         points = ""
         users = ""
         for i in range(0, len(leaderboard)):
-            ranks += f"{i+1}\n"
+            ranks += f"{i+1:,}\n"
             points += f"{leaderboard[i]['points']:,}\n"
-            users += f"{leaderboard[i]['author']}\n"
+            users += f"{await getUsername(leaderboard[i]['author'])}\n"
         embed.add_field(name="Rank",value=ranks, inline=True)
         embed.add_field(name="Points",value=points, inline=True)
         embed.add_field(name="User",value=users, inline=True)
@@ -459,17 +495,21 @@ async def leaderboard(ctx, user=None):
         embed.add_field(name="Numbers", value=rules, inline=True)
         embed.add_field(name="Points", value=values, inline=True)
     else:
+        # Get usernames from IDs
+        for contributor in leaderboard:
+            contributor["name"] = await getUsername(contributor["author"])
+
         # Get user rank
-        temp = [x["author"].startswith(user) for x in leaderboard]
+        temp = [x["name"].startswith(user) for x in leaderboard]
         if (True not in temp):
             await ctx.send("User not found.")
             return
         rank = temp.index(True)
 
         # Add description
-        embed.description = f"**Point Breakdown for:** {leaderboard[rank]['author']}\n"
+        embed.description = f"**Point Breakdown for:** {leaderboard[rank]['name']}\n"
         embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
-        embed.description += f"**Rank:** {rank + 1}\n"
+        embed.description += f"**Rank:** {rank + 1:,}\n"
 
         # Add points breakdown
         rules = ""
@@ -499,21 +539,21 @@ async def progress(ctx):
 
     # Get messages
     if (ctx.channel.id in channels):
-        countdown = countdowns[str(ctx.channel.id)]
+        countdown = countdowns[ctx.channel.id]
     else:
-        countdown = countdowns[str(channels[0])]
+        countdown = countdowns[channels[0]]
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
         await ctx.send("Error: The countdown is empty.")
         return
 
-   # Create temp file
+    # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
-    # Get stats
-    stats = countdown.stats()
+    # Get progress stats
+    stats = countdown.progress()
 
     # Create plot
     plt.close()
@@ -540,10 +580,10 @@ async def progress(ctx):
 
     # Create embed
     embed=discord.Embed(title="Countdown Progress")
-    embed.description = f"**Progress:** {stats['total'] - stats['current']} / {stats['total']} ({round(stats['percentage'], 2)}%)\n"
-    embed.description += f"**Average Progress per Day:** {round(stats['rate'], 2)}\n"
-    embed.description += f"**Start Date:** {start} ({startDiff} days ago)\n"
-    embed.description += f"**Estimated End Date:** {end} ({endDiff} days from now)\n"
+    embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 2)}%)\n"
+    embed.description += f"**Average Progress per Day:** {round(stats['rate'], 2):,}\n"
+    embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
+    embed.description += f"**Estimated End Date:** {end} ({endDiff:,} days from now)\n"
     embed.set_image(url="attachment://image.png")
 
     # Send embed
@@ -569,11 +609,11 @@ async def reload(ctx):
         rawMessages.reverse()
 
         # Create countdown
-        countdowns[str(ctx.channel.id)] = Countdown([])
+        countdowns[ctx.channel.id] = Countdown([])
 
         # Load messages
         for rawMessage in rawMessages:
-            await countdowns[str(ctx.channel.id)].parseMessage(rawMessage)
+            await countdowns[ctx.channel.id].parseMessage(rawMessage)
 
         # Print status
         print(f"Reloaded messages from {bot.get_channel(ctx.channel.id)}")
