@@ -567,6 +567,19 @@ async def leaderboard(ctx, user=None):
 
 
 
+@bot.command()
+async def ping(ctx):
+    """
+    Pings the countdown bot
+    """
+
+    embed=discord.Embed(title=":ping_pong: Pong!")
+    embed.description = f"**Latency:** {round(bot.latency * 1000)} ms\n"
+    embed.description += f"**Countdowns:** {len(countdowns)}"
+    await ctx.send(embed=embed)
+
+
+
 @bot.command(aliases=["p"])
 async def progress(ctx):
     """

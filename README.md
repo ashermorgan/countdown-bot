@@ -58,6 +58,12 @@ If a command is not run in a countdown channel, the bot will run it for the 1st 
 **Usage:** `!countdown leaderboard|l [user]`
 
 
+### ping 
+**Description:** Pings the countdown bot
+
+**Usage:** `!c-dev ping`
+
+
 ### progress
 **Description:** Shows information about countdown progress
 
