@@ -67,7 +67,7 @@ If a command is not run in a countdown channel, the bot will run it for the 1st 
 ### speed
 **Description:** Shows countdown speed statistics
 
-**Usage:** `!countdown speed|s`
+**Usage:** `!countdown speed|s [hours=24.0]`
 
 
 ### reload

@@ -14,7 +14,7 @@ import tempfile
 # Global variables
 channels = []
 countdowns = {}
-TIMEZONE = -8  # America/Los_Angeles
+TIMEZONE = timedelta(hours=-8)  # America/Los_Angeles
 
 
 
@@ -313,9 +313,16 @@ class Countdown:
             "eta": eta,
         }
 
-    def speed(self):
+    def speed(self, period=timedelta(days=1), tz=timedelta(hours=0)):
         """
         Get countdown speed statistics.
+
+        Parameters
+        ----------
+        periodLength : timedelta
+            The period size. The default is 1 day.
+        tz : timedelta
+            The timezone. The default is +0 (UTC)
 
         Returns
         -------
@@ -323,18 +330,24 @@ class Countdown:
             The countdown speed statistics.
         """
 
-        # Get speed statistics
-        speed = []
-        dates = list(set([(x.timestamp - timedelta(hours=8)).date() for x in self.messages]))
-        for date in dates:
-            speed += [{
-                "date":date,
-                "progress":len([x for x in self.messages if (x.timestamp - timedelta(hours=8)).date() == date]),
-            }]
-        speed = sorted(speed, key=lambda x: x["date"])
+        # Calculate speed statistics
+        data = [[], []]
+        periodStart = datetime(2018, 1, 1) # Starts on Monday, Jan 1st
+        for message in self.messages:
+            # If data point isn't in the current period
+            while (message.timestamp + tz - period >= periodStart):
+                periodStart += period
+
+            # Add new period if needed
+            if (len(data[0]) == 0 or data[0][-1] != periodStart):
+                data[0] += [periodStart]
+                data[1] += [0]
+
+            # Otherwise add the latest diff to the current period
+            data[1][-1] += 1
 
         # Return speed statistics
-        return speed
+        return data
 
 
 
@@ -586,7 +599,7 @@ async def progress(ctx):
     plt.gcf().autofmt_xdate()
 
     # Add data to graph
-    x = [stats["start"] + timedelta(hours=TIMEZONE)] + [x["time"] + timedelta(hours=TIMEZONE) for x in stats["progress"]]
+    x = [stats["start"] + TIMEZONE] + [x["time"] + TIMEZONE for x in stats["progress"]]
     y = [0] + [x["progress"] for x in stats["progress"]]
     plt.plot(x, y)
 
@@ -595,9 +608,9 @@ async def progress(ctx):
     file = discord.File(tmp.name, filename="image.png")
 
     # Calculate embed data
-    start = (stats["start"] + timedelta(hours=TIMEZONE)).date()
+    start = (stats["start"] + TIMEZONE).date()
     startDiff = (datetime.utcnow() - stats["start"]).days
-    end = (stats["eta"] + timedelta(hours=TIMEZONE)).date()
+    end = (stats["eta"] + TIMEZONE).date()
     endDiff = (stats["eta"] - datetime.utcnow()).days
     if endDiff < 0: endDiff = 0
 
@@ -648,7 +661,7 @@ async def reload(ctx):
 
 
 @bot.command(aliases=["s"])
-async def speed(ctx):
+async def speed(ctx, period=24.0):
     """
     Shows information about countdown speed
     """
@@ -664,13 +677,19 @@ async def speed(ctx):
         await ctx.send("Error: The countdown is empty.")
         return
 
+    # Make sure hours is greater than 0
+    if (period <= 0):
+        await ctx.send("Error: Hours must be greater than 0.")
+        return
+
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
     # Get stats
     stats = countdown.progress()
-    speed = countdown.speed()
+    period = timedelta(hours=period)
+    speed = countdown.speed(period, tz=TIMEZONE)
 
     # Create plot
     plt.close()
@@ -680,10 +699,8 @@ async def speed(ctx):
     plt.gcf().autofmt_xdate()
 
     # Add data to graph
-    x = [x["date"] for x in speed]
-    y = [x["progress"] for x in speed]
-    for i in range(0, len(x)):
-        plt.bar(x[i], y[i], width=timedelta(days=1), color="#1f77b4")
+    for i in range(0, len(speed[0])):
+        plt.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
 
     # Save graph
     plt.savefig(tmp.name)
@@ -691,10 +708,10 @@ async def speed(ctx):
 
     # Create embed
     embed=discord.Embed(title="Countdown Speed")
-    embed.description = f"**Period Size:** 1 day\n"
+    embed.description = f"**Period Size:** {period}\n"
     embed.description += f"**Average Progress per Period:** {round(stats['rate']):,}\n"
-    embed.description += f"**Record Progress per Period:** {max(x['progress'] for x in speed):,}\n"
-    embed.description += f"**Progress during Current Period:** {speed[-1]['progress']:,}\n"
+    embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
+    embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
     embed.set_image(url="attachment://image.png")
 
     # Send embed
