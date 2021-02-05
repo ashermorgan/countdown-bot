@@ -64,6 +64,12 @@ If a command is not run in a countdown channel, the bot will run it for the 1st 
 **Usage:** `!countdown progress|p`
 
 
+### speed
+**Description:** Shows countdown speed statistics
+
+**Usage:** `!countdown speed|s`
+
+
 ### reload
 **Description:** Reloads the countdown cache
 

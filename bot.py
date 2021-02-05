@@ -157,50 +157,6 @@ class Countdown:
         except:
             pass
 
-    def progress(self):
-        """
-        Get countdown progress statistics.
-
-        Returns
-        -------
-        dict
-            A dictionary containing countdown progress statistics.
-        """
-
-        # Get basic statistics
-        if (len(self.messages) > 0):
-            total = self.messages[0].number
-            current = self.messages[-1].number
-            percentage = (total - current) / total * 100
-            start = self.messages[0].timestamp
-        else:
-            total = 0
-            current = 0
-            percentage = 0
-            start = datetime.utcnow()
-
-        # Get rate statistics
-        if (len(self.messages) > 1):
-            rate = (total - current)/((self.messages[-1].timestamp - self.messages[0].timestamp) / timedelta(days=1))
-            eta = datetime.utcnow() + timedelta(days=current/rate)
-        else:
-            rate = 0
-            eta = datetime.utcnow()
-
-        # Get list of progress
-        progress = [{"time":x.timestamp, "progress":x.number} for x in self.messages]
-
-        # Return stats
-        return {
-            "total": total,
-            "current": current,
-            "percentage": percentage,
-            "progress": progress,
-            "start": start,
-            "rate": rate,
-            "eta": eta,
-        }
-
     def contributors(self):
         """
         Get countdown contributor statistics.
@@ -312,6 +268,73 @@ class Countdown:
         leaderboard = [points[x] for x in points]
         leaderboard = sorted(leaderboard, key=lambda x: x["points"], reverse=True)
         return leaderboard
+
+    def progress(self):
+        """
+        Get countdown progress statistics.
+
+        Returns
+        -------
+        dict
+            A dictionary containing countdown progress statistics.
+        """
+
+        # Get basic statistics
+        if (len(self.messages) > 0):
+            total = self.messages[0].number
+            current = self.messages[-1].number
+            percentage = (total - current) / total * 100
+            start = self.messages[0].timestamp
+        else:
+            total = 0
+            current = 0
+            percentage = 0
+            start = datetime.utcnow()
+
+        # Get rate statistics
+        if (len(self.messages) > 1):
+            rate = (total - current)/((self.messages[-1].timestamp - self.messages[0].timestamp) / timedelta(days=1))
+            eta = datetime.utcnow() + timedelta(days=current/rate)
+        else:
+            rate = 0
+            eta = datetime.utcnow()
+
+        # Get list of progress
+        progress = [{"time":x.timestamp, "progress":x.number} for x in self.messages]
+
+        # Return stats
+        return {
+            "total": total,
+            "current": current,
+            "percentage": percentage,
+            "progress": progress,
+            "start": start,
+            "rate": rate,
+            "eta": eta,
+        }
+
+    def speed(self):
+        """
+        Get countdown speed statistics.
+
+        Returns
+        -------
+        list
+            The countdown speed statistics.
+        """
+
+        # Get speed statistics
+        speed = []
+        dates = list(set([(x.timestamp - timedelta(hours=8)).date() for x in self.messages]))
+        for date in dates:
+            speed += [{
+                "date":date,
+                "progress":len([x for x in self.messages if (x.timestamp - timedelta(hours=8)).date() == date]),
+            }]
+        speed = sorted(speed, key=lambda x: x["date"])
+
+        # Return speed statistics
+        return speed
 
 
 
@@ -580,8 +603,8 @@ async def progress(ctx):
 
     # Create embed
     embed=discord.Embed(title="Countdown Progress")
-    embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 2)}%)\n"
-    embed.description += f"**Average Progress per Day:** {round(stats['rate'], 2):,}\n"
+    embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
+    embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
     embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
     embed.description += f"**Estimated End Date:** {end} ({endDiff:,} days from now)\n"
     embed.set_image(url="attachment://image.png")
@@ -621,6 +644,67 @@ async def reload(ctx):
 
     else:
         await ctx.channel.send("This command must be used in the countdown channel")
+
+
+
+@bot.command(aliases=["s"])
+async def speed(ctx):
+    """
+    Shows information about countdown speed
+    """
+
+    # Get messages
+    if (ctx.channel.id in channels):
+        countdown = countdowns[ctx.channel.id]
+    else:
+        countdown = countdowns[channels[0]]
+
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        await ctx.send("Error: The countdown is empty.")
+        return
+
+    # Create temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    tmp.close()
+
+    # Get stats
+    stats = countdown.progress()
+    speed = countdown.speed()
+
+    # Create plot
+    plt.close()
+    plt.title("Countdown Speed")
+    plt.xlabel("Time")
+    plt.ylabel("Progress per Period")
+    plt.gcf().autofmt_xdate()
+
+    # Add data to graph
+    x = [x["date"] for x in speed]
+    y = [x["progress"] for x in speed]
+    for i in range(0, len(x)):
+        plt.bar(x[i], y[i], width=timedelta(days=1), color="#1f77b4")
+
+    # Save graph
+    plt.savefig(tmp.name)
+    file = discord.File(tmp.name, filename="image.png")
+
+    # Create embed
+    embed=discord.Embed(title="Countdown Speed")
+    embed.description = f"**Period Size:** 1 day\n"
+    embed.description += f"**Average Progress per Period:** {round(stats['rate']):,}\n"
+    embed.description += f"**Record Progress per Period:** {max(x['progress'] for x in speed):,}\n"
+    embed.description += f"**Progress during Current Period:** {speed[-1]['progress']:,}\n"
+    embed.set_image(url="attachment://image.png")
+
+    # Send embed
+    await ctx.send(file=file, embed=embed)
+
+    # Remove temp file
+    try:
+        os.remove(tmp.name)
+    except:
+        print(f"Unable to delete temp file: {tmp.name}.")
 
 
 
