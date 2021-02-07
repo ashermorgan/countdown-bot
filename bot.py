@@ -725,6 +725,7 @@ async def speed(ctx, period=24.0):
     rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
     embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
     embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
+    embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
     embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
     embed.set_image(url="attachment://image.png")
 
