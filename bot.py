@@ -400,7 +400,10 @@ async def on_message(obj):
 
 @bot.event
 async def on_command_error(ctx, error):
-    await ctx.send(f":x: Error: {error}")
+    embed=discord.Embed(title=":x: Error", description=str(error))
+    embed.description = str(error)
+    embed.description += f"\nUse `{(await bot.get_prefix(ctx))[0]}help` to view help information\n"
+    await ctx.send(embed=embed)
 
 
 
@@ -416,47 +419,51 @@ async def contributors(ctx):
     else:
         countdown = countdowns[channels[0]]
 
-    # Make sure the countdown has started
-    if (len(countdown.messages) == 0):
-        await ctx.send(":x: Error: The countdown is empty.")
-        return
-
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
-    # Get stats
-    contributors = countdown.contributors()
-
-    # Create plot
-    plt.close()
-    plt.title("Countdown Contributors")
-
-    # Add data to graph
-    x = [await getUsername(x["author"]) for x in contributors]
-    y = [x["contributions"] for x in contributors]
-    plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
-
-    # Save graph
-    plt.savefig(tmp.name)
-    file = discord.File(tmp.name, filename="image.png")
-
     # Create embed
     embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors")
-    ranks = ""
-    users = ""
-    contributions = ""
-    for i in range(0, len(x)):
-        ranks += f"{i+1:,}\n"
-        contributions += f"{y[i]:,}\n"
-        users += f"{x[i]}\n"
-    embed.add_field(name="Rank",value=ranks, inline=True)
-    embed.add_field(name="User",value=users, inline=True)
-    embed.add_field(name="Contributions",value=contributions, inline=True)
-    embed.set_image(url="attachment://image.png")
+
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        embed.description = "The countdown is empty."
+    else:
+        # Get stats
+        contributors = countdown.contributors()
+
+        # Create plot
+        plt.close()
+        plt.title("Countdown Contributors")
+
+        # Add data to graph
+        x = [await getUsername(x["author"]) for x in contributors]
+        y = [x["contributions"] for x in contributors]
+        plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
+
+        # Save graph
+        plt.savefig(tmp.name)
+        file = discord.File(tmp.name, filename="image.png")
+
+        # Add content to embed
+        ranks = ""
+        users = ""
+        contributions = ""
+        for i in range(0, len(x)):
+            ranks += f"{i+1:,}\n"
+            contributions += f"{y[i]:,}\n"
+            users += f"{x[i]}\n"
+        embed.add_field(name="Rank",value=ranks, inline=True)
+        embed.add_field(name="User",value=users, inline=True)
+        embed.add_field(name="Contributions",value=contributions, inline=True)
+        embed.set_image(url="attachment://image.png")
 
     # Send embed
-    await ctx.send(file=file, embed=embed)
+    try:
+        await ctx.send(file=file, embed=embed)
+    except:
+        await ctx.send(embed=embed)
 
     # Remove temp file
     try:
@@ -580,18 +587,16 @@ async def leaderboard(ctx, user=None):
     else:
         countdown = countdowns[channels[0]]
 
-    # Make sure the countdown has started
-    if (len(countdown.messages) == 0):
-        await ctx.send(":x: Error: The countdown is empty.")
-        return
-
     # Get leaderboard
     leaderboard = countdown.leaderboard()
 
     # Create embed
     embed=discord.Embed(title=":trophy: Countdown Leaderboard")
 
-    if (user is None):
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        embed.description = "The countdown is empty."
+    elif (user is None):
         # Add leaderboard
         ranks = ""
         points = ""
@@ -621,7 +626,9 @@ async def leaderboard(ctx, user=None):
         # Get user rank
         temp = [x["name"].startswith(user) for x in leaderboard]
         if (True not in temp):
-            await ctx.send(":x: User not found.")
+            embed.title = ":x: Countdown Leaderboard"
+            embed.description = f"User not found: `{user}`"
+            await ctx.send(embed=embed)
             return
         rank = temp.index(True)
 
@@ -675,52 +682,56 @@ async def progress(ctx):
         countdown = countdowns[ctx.channel.id]
     else:
         countdown = countdowns[channels[0]]
-
-    # Make sure the countdown has started
-    if (len(countdown.messages) == 0):
-        await ctx.send(":x: Error: The countdown is empty.")
-        return
-
+    
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
-    # Get progress stats
-    stats = countdown.progress()
-
-    # Create plot
-    plt.close()
-    plt.title("Countdown Progress")
-    plt.xlabel("Time")
-    plt.ylabel("Progress")
-    plt.gcf().autofmt_xdate()
-
-    # Add data to graph
-    x = [stats["start"] + TIMEZONE] + [x["time"] + TIMEZONE for x in stats["progress"]]
-    y = [0] + [x["progress"] for x in stats["progress"]]
-    plt.plot(x, y)
-
-    # Save graph
-    plt.savefig(tmp.name)
-    file = discord.File(tmp.name, filename="image.png")
-
-    # Calculate embed data
-    start = (stats["start"] + TIMEZONE).date()
-    startDiff = (datetime.utcnow() - stats["start"]).days
-    end = (stats["eta"] + TIMEZONE).date()
-    endDiff = (stats["eta"] - datetime.utcnow()).days
-    if endDiff < 0: endDiff = 0
-
     # Create embed
     embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress")
-    embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
-    embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
-    embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
-    embed.description += f"**Estimated End Date:** {end} ({endDiff:,} days from now)\n"
-    embed.set_image(url="attachment://image.png")
+
+    # Make sure the countdown has started
+    if (len(countdown.messages) == 0):
+        embed.description = "The countdown is empty."
+    else:
+        # Get progress stats
+        stats = countdown.progress()
+
+        # Create plot
+        plt.close()
+        plt.title("Countdown Progress")
+        plt.xlabel("Time")
+        plt.ylabel("Progress")
+        plt.gcf().autofmt_xdate()
+
+        # Add data to graph
+        x = [stats["start"] + TIMEZONE] + [x["time"] + TIMEZONE for x in stats["progress"]]
+        y = [0] + [x["progress"] for x in stats["progress"]]
+        plt.plot(x, y)
+
+        # Save graph
+        plt.savefig(tmp.name)
+        file = discord.File(tmp.name, filename="image.png")
+
+        # Calculate embed data
+        start = (stats["start"] + TIMEZONE).date()
+        startDiff = (datetime.utcnow() - stats["start"]).days
+        end = (stats["eta"] + TIMEZONE).date()
+        endDiff = (stats["eta"] - datetime.utcnow()).days
+        if endDiff < 0: endDiff = 0
+
+        # Add content to embed
+        embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
+        embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
+        embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
+        embed.description += f"**Estimated End Date:** {end} ({endDiff:,} days from now)\n"
+        embed.set_image(url="attachment://image.png")
 
     # Send embed
-    await ctx.send(file=file, embed=embed)
+    try:
+        await ctx.send(file=file, embed=embed)
+    except:
+        await ctx.send(embed=embed)
 
     # Remove temp file
     try:
@@ -737,6 +748,11 @@ async def reload(ctx):
     """
 
     if (ctx.channel.id in channels):
+        # Send inital responce
+        print(f"Reloading messages from {bot.get_channel(ctx.channel.id)}")
+        embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting.")
+        msg = await ctx.channel.send(embed=embed)
+
         # Get messages
         rawMessages = await bot.get_channel(ctx.channel.id).history(limit=10100).flatten()
         rawMessages.reverse()
@@ -748,12 +764,13 @@ async def reload(ctx):
         for rawMessage in rawMessages:
             await countdowns[ctx.channel.id].parseMessage(rawMessage)
 
-        # Print status
+        # Send final responce
         print(f"Reloaded messages from {bot.get_channel(ctx.channel.id)}")
-        await ctx.channel.send(":ballot_box_with_check: Done!")
-
+        embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!")
+        await msg.edit(embed=embed)
     else:
-        await ctx.channel.send(":x: This command must be used in the countdown channel")
+        embed = discord.Embed(title=":x: Reload", description="This command must be used in a countdown channel")
+        await ctx.channel.send(embed=embed)
 
 
 
@@ -769,52 +786,53 @@ async def speed(ctx, period=24.0):
     else:
         countdown = countdowns[channels[0]]
 
-    # Make sure the countdown has started
-    if (len(countdown.messages) == 0):
-        await ctx.send(":x: Error: The countdown is empty.")
-        return
-
-    # Make sure hours is greater than 0
-    if (period <= 0):
-        await ctx.send(":x: Error: Hours must be greater than 0.")
-        return
-
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
-    # Get stats
-    stats = countdown.progress()
-    period = timedelta(hours=period)
-    speed = countdown.speed(period, tz=TIMEZONE)
-
-    # Create plot
-    plt.close()
-    plt.title("Countdown Speed")
-    plt.xlabel("Time")
-    plt.ylabel("Progress per Period")
-    plt.gcf().autofmt_xdate()
-
-    # Add data to graph
-    for i in range(0, len(speed[0])):
-        plt.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
-
-    # Save graph
-    plt.savefig(tmp.name)
-    file = discord.File(tmp.name, filename="image.png")
-
     # Create embed
     embed=discord.Embed(title=":stopwatch: Countdown Speed")
-    embed.description = f"**Period Size:** {period}\n"
-    rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
-    embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
-    embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
-    embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
-    embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
-    embed.set_image(url="attachment://image.png")
+
+    if (len(countdown.messages) == 0):
+        embed.description = "The countdown is empty."
+    elif (period <= 0):
+        embed.title = ":x: Countdown Speed"
+        embed.description = "Hours must be greater than 0."
+    else:
+        # Get stats
+        stats = countdown.progress()
+        period = timedelta(hours=period)
+        speed = countdown.speed(period, tz=TIMEZONE)
+
+        # Create plot
+        plt.close()
+        plt.title("Countdown Speed")
+        plt.xlabel("Time")
+        plt.ylabel("Progress per Period")
+        plt.gcf().autofmt_xdate()
+
+        # Add data to graph
+        for i in range(0, len(speed[0])):
+            plt.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
+
+        # Save graph
+        plt.savefig(tmp.name)
+        file = discord.File(tmp.name, filename="image.png")
+
+        # Add content to embed
+        embed.description = f"**Period Size:** {period}\n"
+        rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
+        embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
+        embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
+        embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
+        embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
+        embed.set_image(url="attachment://image.png")
 
     # Send embed
-    await ctx.send(file=file, embed=embed)
+    try:
+        await ctx.send(file=file, embed=embed)
+    except:
+        await ctx.send(embed=embed)
 
     # Remove temp file
     try:
