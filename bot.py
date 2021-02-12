@@ -27,6 +27,10 @@ POINT_RULES = {
     "Even Numbers": 10,
     "First Number": 0,
 }
+COLORS = {
+    "error": 0xD52C42,
+    "embed": 0x248AD1,
+}
 
 
 
@@ -400,7 +404,7 @@ async def on_message(obj):
 
 @bot.event
 async def on_command_error(ctx, error):
-    embed=discord.Embed(title=":x: Error", description=str(error))
+    embed=discord.Embed(title="Error", description=str(error), color=COLORS["error"])
     embed.description = str(error)
     embed.description += f"\nUse `{(await bot.get_prefix(ctx))[0]}help` to view help information\n"
     await ctx.send(embed=embed)
@@ -424,7 +428,7 @@ async def contributors(ctx):
     tmp.close()
 
     # Create embed
-    embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors")
+    embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors", color=COLORS["embed"])
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
@@ -485,14 +489,14 @@ async def help(ctx, command=None):
         "prefixes":
             f"`{'`, `'.join(prefixes)}`",
         "commands":
-            "**-** `contributors`: Shows information about countdown contributors\n" \
-            "**-** `help`: Shows help information\n" \
-            "**-** `leaderboard`: Shows the countdown leaderboard\n" \
+            "**-** `contributors, c`: Shows information about countdown contributors\n" \
+            "**-** `help, h`: Shows help information\n" \
+            "**-** `leaderboard, l`: Shows the countdown leaderboard\n" \
             "**-** `ping`: Pings the bot\n" \
-            "**-** `progress`: Shows information about countdown progress\n" \
+            "**-** `progress, p`: Shows information about countdown progress\n" \
             "**-** `reload`: Reloads the countdown cache\n" \
-            "**-** `speed`: Shows information about countdown speed\n" \
-            f"Use `{prefixes[0]}help command` to get more info on a command\n",
+            "**-** `speed, s`: Shows information about countdown speed\n" \
+            f"\nUse `{prefixes[0]}help command` to get more info on a command\n",
         "behavior":
             "**-** Reacts with :no_entry: when a user counts out of turn\n" \
             "**-** Reacts with :x: when a user counts incorrectly\n" \
@@ -546,7 +550,7 @@ async def help(ctx, command=None):
     }
 
     # Create embed
-    embed=discord.Embed(title=":grey_question: countdown-bot Help")
+    embed=discord.Embed(title=":grey_question: countdown-bot Help", color=COLORS["embed"])
     if (command is None):
         embed.add_field(name="Command Prefixes :gear:", value=help_text["prefixes"], inline=False)
         embed.add_field(name="Commands :wrench:", value=help_text["commands"], inline=False)
@@ -566,7 +570,7 @@ async def help(ctx, command=None):
     elif (command.lower() in ["s", "speed"]):
         embed.description = help_text["speed"]
     else:
-        embed.title = ":x: countdown-bot Help "
+        embed.color = COLORS["error"]
         embed.description = f"Command not found: `{command}`\n"
         embed.description += f"Use `{prefixes[0]}help` to view the list of commands"
 
@@ -591,7 +595,7 @@ async def leaderboard(ctx, user=None):
     leaderboard = countdown.leaderboard()
 
     # Create embed
-    embed=discord.Embed(title=":trophy: Countdown Leaderboard")
+    embed=discord.Embed(title=":trophy: Countdown Leaderboard", color=COLORS["embed"])
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
@@ -626,7 +630,7 @@ async def leaderboard(ctx, user=None):
         # Get user rank
         temp = [x["name"].lower().startswith(user.lower()) for x in leaderboard]
         if (True not in temp):
-            embed.title = ":x: Countdown Leaderboard"
+            embed.color = COLORS["error"]
             embed.description = f"User not found: `{user}`"
             await ctx.send(embed=embed)
             return
@@ -664,7 +668,7 @@ async def ping(ctx):
     Pings the bot
     """
 
-    embed=discord.Embed(title=":ping_pong: Pong!")
+    embed=discord.Embed(title=":ping_pong: Pong!", color=COLORS["embed"])
     embed.description = f"**Latency:** {round(bot.latency * 1000)} ms\n"
     embed.description += f"**Countdowns:** {len(countdowns)}"
     await ctx.send(embed=embed)
@@ -688,7 +692,7 @@ async def progress(ctx):
     tmp.close()
 
     # Create embed
-    embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress")
+    embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress", color=COLORS["embed"])
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
@@ -750,7 +754,7 @@ async def reload(ctx):
     if (ctx.channel.id in channels):
         # Send inital responce
         print(f"Reloading messages from {bot.get_channel(ctx.channel.id)}")
-        embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting.")
+        embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting.", color=COLORS["embed"])
         msg = await ctx.channel.send(embed=embed)
 
         # Get messages
@@ -766,10 +770,10 @@ async def reload(ctx):
 
         # Send final responce
         print(f"Reloaded messages from {bot.get_channel(ctx.channel.id)}")
-        embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!")
+        embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!", color=COLORS["embed"])
         await msg.edit(embed=embed)
     else:
-        embed = discord.Embed(title=":x: Reload", description="This command must be used in a countdown channel")
+        embed = discord.Embed(title="Error", description="This command must be used in a countdown channel", color = COLORS["error"])
         await ctx.channel.send(embed=embed)
 
 
@@ -791,12 +795,12 @@ async def speed(ctx, period=24.0):
     tmp.close()
 
     # Create embed
-    embed=discord.Embed(title=":stopwatch: Countdown Speed")
+    embed=discord.Embed(title=":stopwatch: Countdown Speed", color=COLORS["embed"])
 
     if (len(countdown.messages) == 0):
         embed.description = "The countdown is empty."
     elif (period <= 0):
-        embed.title = ":x: Countdown Speed"
+        embed.color = COLORS["error"]
         embed.description = "Hours must be greater than 0."
     else:
         # Get stats
