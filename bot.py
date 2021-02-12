@@ -15,6 +15,18 @@ import tempfile
 channels = []
 countdowns = {}
 TIMEZONE = timedelta(hours=-8)  # America/Los_Angeles
+POINT_RULES = {
+    "1000s": 1000,
+    "1001s": 500,
+    "200s": 200,
+    "201s": 100,
+    "100s": 100,
+    "101s": 50,
+    "Prime Numbers": 15,
+    "Odd Numbers": 12,
+    "Even Numbers": 10,
+    "First Number": 0,
+}
 
 
 
@@ -219,7 +231,6 @@ class Countdown:
             if (message.author not in points):
                 points[message.author] = {
                     "author": message.author,
-                    "points": 0,
                     "breakdown": {
                         "1000s": 0,
                         "1001s": 0,
@@ -233,39 +244,23 @@ class Countdown:
                         "First Number": 0,
                     },
                 }
-            if (message.number == self.messages[0].number):
-                points[message.author]["points"] += 0
-                points[message.author]["breakdown"]["First Number"] += 0
-            elif (message.number % 1000 == 0):
-                points[message.author]["points"] += 1000
-                points[message.author]["breakdown"]["1000s"] += 1000
-            elif (message.number % 1000 == 1):
-                points[message.author]["points"] += 500
-                points[message.author]["breakdown"]["1001s"] += 500
-            elif (message.number % 200 == 0):
-                points[message.author]["points"] += 200
-                points[message.author]["breakdown"]["200s"] += 200
-            elif (message.number % 200 == 1):
-                points[message.author]["points"] += 100
-                points[message.author]["breakdown"]["201s"] += 100
-            elif (message.number % 100 == 0):
-                points[message.author]["points"] += 100
-                points[message.author]["breakdown"]["100s"] += 100
-            elif (message.number % 100 == 1):
-                points[message.author]["points"] += 50
-                points[message.author]["breakdown"]["101s"] += 50
-            elif (message.number in primes):
-                points[message.author]["points"] += 15
-                points[message.author]["breakdown"]["Prime Numbers"] += 15
-            elif (message.number % 2 == 1):
-                points[message.author]["points"] += 12
-                points[message.author]["breakdown"]["Odd Numbers"] += 12
-            else:
-                points[message.author]["points"] += 10
-                points[message.author]["breakdown"]["Even Numbers"] += 10
+            if (message.number == self.messages[0].number): points[message.author]["breakdown"]["First Number"] += 1
+            elif (message.number % 1000 == 0):              points[message.author]["breakdown"]["1000s"] += 1
+            elif (message.number % 1000 == 1):              points[message.author]["breakdown"]["1001s"] += 1
+            elif (message.number % 200 == 0):               points[message.author]["breakdown"]["200s"] += 1
+            elif (message.number % 200 == 1):               points[message.author]["breakdown"]["201s"] += 1
+            elif (message.number % 100 == 0):               points[message.author]["breakdown"]["100s"] += 1
+            elif (message.number % 100 == 1):               points[message.author]["breakdown"]["101s"] += 1
+            elif (message.number in primes):                points[message.author]["breakdown"]["Prime Numbers"] += 1
+            elif (message.number % 2 == 1):                 points[message.author]["breakdown"]["Odd Numbers"] += 1
+            else:                                           points[message.author]["breakdown"]["Even Numbers"] += 1
 
         # Create ranked leaderboard
-        leaderboard = [points[x] for x in points]
+        leaderboard = []
+        for contributor in points.values():
+            contributor["contributions"] = sum(contributor["breakdown"].values())
+            contributor["points"] = sum([contributor["breakdown"][x] * POINT_RULES[x] for x in contributor["breakdown"]])
+            leaderboard += [contributor]
         leaderboard = sorted(leaderboard, key=lambda x: x["points"], reverse=True)
         return leaderboard
 
@@ -487,7 +482,7 @@ async def leaderboard(ctx, user=None):
         await ctx.send("Error: The countdown is empty.")
         return
 
-   # Get leaderboard
+    # Get leaderboard
     leaderboard = countdown.leaderboard()
 
     # Create embed
@@ -501,32 +496,17 @@ async def leaderboard(ctx, user=None):
         for i in range(0, len(leaderboard)):
             ranks += f"{i+1:,}\n"
             points += f"{leaderboard[i]['points']:,}\n"
-            users += f"{await getUsername(leaderboard[i]['author'])}\n"
+            users += f"<@{leaderboard[i]['author']}>\n"
         embed.add_field(name="Rank",value=ranks, inline=True)
         embed.add_field(name="Points",value=points, inline=True)
         embed.add_field(name="User",value=users, inline=True)
 
         # Add leaderboard rules
-        rules = "1000s\n" \
-                "1001s\n" \
-                "200s\n" \
-                "201s\n" \
-                "100s\n" \
-                "101s\n" \
-                "Prime Numbers\n" \
-                "Odd Numbers\n" \
-                "Even Numbers\n" \
-                "First Number\n"
-        values = "1000 points\n" \
-                "500 points\n" \
-                "200 points\n" \
-                "100 points\n" \
-                "100 points\n" \
-                "50 points\n" \
-                "15 points\n" \
-                "12 points\n" \
-                "10 points\n" \
-                "0 points\n"
+        rules = ""
+        values = ""
+        for rule in POINT_RULES:
+            rules += f"{rule}\n"
+            values += f"{POINT_RULES[rule]} points\n"
         embed.add_field(name="Rules", value="Only 1 rule is applied towards each number", inline=False)
         embed.add_field(name="Numbers", value=rules, inline=True)
         embed.add_field(name="Points", value=values, inline=True)
@@ -543,9 +523,10 @@ async def leaderboard(ctx, user=None):
         rank = temp.index(True)
 
         # Add description
-        embed.description = f"**Point Breakdown for:** {leaderboard[rank]['name']}\n"
+        embed.description = f"**User:** <@{leaderboard[rank]['author']}>\n"
+        embed.description += f"**Rank:** #{rank + 1:,}\n"
         embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
-        embed.description += f"**Rank:** {rank + 1:,}\n"
+        embed.description += f"**Total Contributions:** {leaderboard[rank]['contributions']:,}\n"
 
         # Add points breakdown
         rules = ""
@@ -553,9 +534,9 @@ async def leaderboard(ctx, user=None):
         percentage = ""
         for category in leaderboard[rank]["breakdown"]:
             rules += f"{category}\n"
-            points += f"{leaderboard[rank]['breakdown'][category]:,}\n"
+            points += f"{leaderboard[rank]['breakdown'][category] * POINT_RULES[category]:,} *({leaderboard[rank]['breakdown'][category]:,})*\n"
             if (leaderboard[rank]['points'] > 0):
-                percentage += f"{round(leaderboard[rank]['breakdown'][category] / leaderboard[rank]['points'] * 100, 1)}%\n"
+                percentage += f"{round(leaderboard[rank]['breakdown'][category] * POINT_RULES[category] / leaderboard[rank]['points'] * 100, 1)}%\n"
             else:
                 percentage += "0%\n"
         embed.add_field(name="Category", value=rules, inline=True)
