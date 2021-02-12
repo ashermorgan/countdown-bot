@@ -359,7 +359,7 @@ with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = ["c."])
+bot = commands.Bot(command_prefix = ["c."], case_insensitive=True)
 bot.remove_command("help")
 
 
@@ -624,7 +624,7 @@ async def leaderboard(ctx, user=None):
             contributor["name"] = await getUsername(contributor["author"])
 
         # Get user rank
-        temp = [x["name"].startswith(user) for x in leaderboard]
+        temp = [x["name"].lower().startswith(user.lower()) for x in leaderboard]
         if (True not in temp):
             embed.title = ":x: Countdown Leaderboard"
             embed.description = f"User not found: `{user}`"
