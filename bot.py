@@ -399,7 +399,7 @@ async def on_message(obj):
 
 @bot.event
 async def on_command_error(ctx, error):
-    await ctx.send(f"Error: {error}")
+    await ctx.send(f":x: Error: {error}")
 
 
 
@@ -417,7 +417,7 @@ async def contributors(ctx):
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
-        await ctx.send("Error: The countdown is empty.")
+        await ctx.send(":x: Error: The countdown is empty.")
         return
 
     # Create temp file
@@ -441,7 +441,7 @@ async def contributors(ctx):
     file = discord.File(tmp.name, filename="image.png")
 
     # Create embed
-    embed=discord.Embed(title="Countdown Contributors")
+    embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors")
     ranks = ""
     users = ""
     contributions = ""
@@ -479,14 +479,14 @@ async def leaderboard(ctx, user=None):
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
-        await ctx.send("Error: The countdown is empty.")
+        await ctx.send(":x: Error: The countdown is empty.")
         return
 
     # Get leaderboard
     leaderboard = countdown.leaderboard()
 
     # Create embed
-    embed=discord.Embed(title="Countdown Leaderboard")
+    embed=discord.Embed(title=":trophy: Countdown Leaderboard")
 
     if (user is None):
         # Add leaderboard
@@ -518,7 +518,7 @@ async def leaderboard(ctx, user=None):
         # Get user rank
         temp = [x["name"].startswith(user) for x in leaderboard]
         if (True not in temp):
-            await ctx.send("User not found.")
+            await ctx.send(":x: User not found.")
             return
         rank = temp.index(True)
 
@@ -575,7 +575,7 @@ async def progress(ctx):
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
-        await ctx.send("Error: The countdown is empty.")
+        await ctx.send(":x: Error: The countdown is empty.")
         return
 
     # Create temp file
@@ -609,7 +609,7 @@ async def progress(ctx):
     if endDiff < 0: endDiff = 0
 
     # Create embed
-    embed=discord.Embed(title="Countdown Progress")
+    embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress")
     embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
     embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
     embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
@@ -647,10 +647,10 @@ async def reload(ctx):
 
         # Print status
         print(f"Reloaded messages from {bot.get_channel(ctx.channel.id)}")
-        await ctx.channel.send("Done!")
+        await ctx.channel.send(":ballot_box_with_check: Done!")
 
     else:
-        await ctx.channel.send("This command must be used in the countdown channel")
+        await ctx.channel.send(":x: This command must be used in the countdown channel")
 
 
 
@@ -668,12 +668,12 @@ async def speed(ctx, period=24.0):
 
     # Make sure the countdown has started
     if (len(countdown.messages) == 0):
-        await ctx.send("Error: The countdown is empty.")
+        await ctx.send(":x: Error: The countdown is empty.")
         return
 
     # Make sure hours is greater than 0
     if (period <= 0):
-        await ctx.send("Error: Hours must be greater than 0.")
+        await ctx.send(":x: Error: Hours must be greater than 0.")
         return
 
     # Create temp file
@@ -701,7 +701,7 @@ async def speed(ctx, period=24.0):
     file = discord.File(tmp.name, filename="image.png")
 
     # Create embed
-    embed=discord.Embed(title="Countdown Speed")
+    embed=discord.Embed(title=":stopwatch: Countdown Speed")
     embed.description = f"**Period Size:** {period}\n"
     rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
     embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
