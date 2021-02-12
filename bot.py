@@ -360,6 +360,7 @@ with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
 
 # Create Discord bot
 bot = commands.Bot(command_prefix = ["!countdown ", "!count ", "!c "])
+bot.remove_command("help")
 
 
 
@@ -465,6 +466,108 @@ async def contributors(ctx):
 
 
 
+@bot.command(aliases=["h"])
+async def help(ctx, command=None):
+    """
+    Shows help information
+    """
+
+    # Initialize help information
+    prefixes = await bot.get_prefix(ctx)
+    help_text = {
+        "prefixes":
+            f"`{'`, `'.join(prefixes)}`",
+        "commands":
+            "**-** `contributors`: Shows information about countdown contributors\n" \
+            "**-** `help`: Shows help information\n" \
+            "**-** `leaderboard`: Shows the countdown leaderboard\n" \
+            "**-** `ping`: Pings the bot\n" \
+            "**-** `progress`: Shows information about countdown progress\n" \
+            "**-** `reload`: Reloads the countdown cache\n" \
+            "**-** `speed`: Shows information about countdown speed\n" \
+            f"Use `{prefixes[0]}help command` to get more info on a command\n",
+        "behavior":
+            "**-** Reacts with :no_entry: when a user counts out of turn\n" \
+            "**-** Reacts with :x: when a user counts incorrectly\n" \
+            "**-** Pins numbers divisible by 200\n" \
+            "**-** Reacts with :partying_face: to the number 0\n",
+        "contributors":
+            "**Name:** contributors\n" \
+            "**Description:** Shows information about countdown contributors\n" \
+            f"**Usage:** `{prefixes[0]}contributors|c`\n" \
+            "**Aliases:** `c`\n" \
+            "**Arguments:** none\n",
+        "help":
+            "**Name:** help\n" \
+            "**Description:** Shows help information\n" \
+            f"**Usage:** `{prefixes[0]}help|h [command]`\n" \
+            "**Aliases:** `h`\n" \
+            "**Arguments:**\n" \
+            "**-** `command`: The command to view help information about. If no value is supplied, general help information will be shown.\n",
+        "leaderboard":
+            "**Name:** leaderboard\n" \
+            "**Description:** Shows the countdown leaderboard\n" \
+            f"**Usage:** `{prefixes[0]}leaderboard|l [user]`\n" \
+            "**Aliases:** `l`\n" \
+            "**Arguments:**\n" \
+            "**-** `user`: The user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n",
+        "ping":
+            "**Name:** ping\n" \
+            "**Description:** Pings the bot\n" \
+            f"**Usage:** `{prefixes[0]}ping`\n" \
+            "**Aliases:** none\n" \
+            "**Arguments:** none\n",
+        "progress":
+            "**Name:** progress\n" \
+            "**Description:** Shows information about countdown progress\n" \
+            f"**Usage:** `{prefixes[0]}progress|p`\n" \
+            "**Aliases:** `p`\n" \
+            "**Arguments:** none\n",
+        "reload":
+            "**Name:** reload\n" \
+            "**Description:** Reloads the countdown cache\n" \
+            f"**Usage:** `{prefixes[0]}reload`\n" \
+            "**Aliases:** none\n" \
+            "**Arguments:** none\n",
+        "speed":
+            "**Name:** speed\n" \
+            "**Description:** Shows information about countdown speed\n" \
+            f"**Usage:** `{prefixes[0]}speed|s [period]`\n" \
+            "**Aliases:** `s`\n" \
+            "**Arguments:**\n" \
+            "**-** `period`: The size of the period in hours. The default is 24 hours.\n",
+    }
+
+    # Create embed
+    embed=discord.Embed(title=":grey_question: countdown-bot Help")
+    if (command is None):
+        embed.add_field(name="Command Prefixes :gear:", value=help_text["prefixes"], inline=False)
+        embed.add_field(name="Commands :wrench:", value=help_text["commands"], inline=False)
+        embed.add_field(name="Behavior in Countdown Channels :robot:", value=help_text["behavior"], inline=False)
+    elif (command.lower() in ["c", "contributors"]):
+        embed.description = help_text["contributors"]
+    elif (command.lower() in ["h", "help"]):
+        embed.description = help_text["help"]
+    elif (command.lower() in ["l", "leaderboard"]):
+        embed.description = help_text["leaderboard"]
+    elif (command.lower() in ["ping"]):
+        embed.description = help_text["ping"]
+    elif (command.lower() in ["p", "progress"]):
+        embed.description = help_text["progress"]
+    elif (command.lower() in ["reload"]):
+        embed.description = help_text["reload"]
+    elif (command.lower() in ["s", "speed"]):
+        embed.description = help_text["speed"]
+    else:
+        embed.title = ":x: countdown-bot Help "
+        embed.description = f"Command not found: `{command}`\n"
+        embed.description += f"Use `{prefixes[0]}help` to view the list of commands"
+
+    # Send embed
+    await ctx.send(embed=embed)
+
+
+
 @bot.command(aliases=["l"])
 async def leaderboard(ctx, user=None):
     """
@@ -551,7 +654,7 @@ async def leaderboard(ctx, user=None):
 @bot.command()
 async def ping(ctx):
     """
-    Pings the countdown bot
+    Pings the bot
     """
 
     embed=discord.Embed(title=":ping_pong: Pong!")
