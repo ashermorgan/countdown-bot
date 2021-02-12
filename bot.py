@@ -359,7 +359,7 @@ with open(os.path.join(os.path.dirname(__file__), "channels.txt"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = ["!countdown ", "!count ", "!c "])
+bot = commands.Bot(command_prefix = ["c."])
 bot.remove_command("help")
 
 
@@ -466,7 +466,7 @@ async def contributors(ctx):
 
 
 
-@bot.command(aliases=["h"])
+@bot.command(aliases=["h", ""])
 async def help(ctx, command=None):
     """
     Shows help information
