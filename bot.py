@@ -949,7 +949,10 @@ async def speed(ctx, period=24.0):
 
         # Add content to embed
         embed.description = f"**Period Size:** {period}\n"
-        rate = (stats['total'] - stats['current'])/((channel["countdown"].messages[-1].timestamp - channel["countdown"].messages[0].timestamp) / period)
+        if (len(channel["countdown"].messages) > 1):
+            rate = (stats['total'] - stats['current'])/((channel["countdown"].messages[-1].timestamp - channel["countdown"].messages[0].timestamp) / period)
+        else:
+            rate = 0
         embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
         embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
         embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
