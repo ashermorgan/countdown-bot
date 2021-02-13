@@ -220,7 +220,7 @@ class Countdown:
             # Mark important messages
             if (message.number == 0):
                 await rawMessage.add_reaction("🥳")
-            if (message.number % 200 == 0):
+            if (self.messages[0].number >= 500 and message.number % (self.messages[0].number // 50) == 0):
                 await rawMessage.pin()
         except MessageNotAllowedError:
             await rawMessage.add_reaction("⛔")
@@ -615,7 +615,7 @@ async def help(ctx, command=None):
         "behavior":
             "**-** Reacts with :no_entry: when a user counts out of turn\n" \
             "**-** Reacts with :x: when a user counts incorrectly\n" \
-            "**-** Pins numbers divisible by 200\n" \
+            "**-** Pins numbers every 2% if the countdown started at 500 or higher\n" \
             "**-** Reacts with :partying_face: to the number 0\n",
         "activate":
             "**Name:** activate\n" \
