@@ -414,7 +414,7 @@ with open(os.path.join(os.path.dirname(__file__), "data.json"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = ["dev."], case_insensitive=True)
+bot = commands.Bot(command_prefix = ["c."], case_insensitive=True)
 bot.remove_command("help")
 
 
