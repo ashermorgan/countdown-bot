@@ -15,7 +15,6 @@ import tempfile
 
 # Global variables
 data = {}
-TIMEZONE = timedelta(hours=-8)  # America/Los_Angeles
 POINT_RULES = {
     "1000s": 1000,
     "1001s": 500,
@@ -86,7 +85,7 @@ def saveData(data):
     with open(os.path.join(os.path.dirname(__file__), "data.json"), "w") as f:
         return json.dump(obj, f)
 
-def getCountdownChannel(ctx):
+def getCountdownChannel(ctx, resortToFirst=True):
     """
     Get the most relevant countdown channel to a certain context.
 
@@ -94,6 +93,8 @@ def getCountdownChannel(ctx):
     ----------
     ctx
         The context
+    resortToFirst : bool
+        Whether to return the 1st countdown channel if no relevant countdown channels are found
 
     Returns
     -------
@@ -117,7 +118,27 @@ def getCountdownChannel(ctx):
         raise Exception("Countdown channel not found.")
 
     # Return default countdown channel
-    return list(data["countdowns"].values())[0]
+    if resortToFirst:
+        return list(data["countdowns"].values())[0]
+    else:
+        raise Exception("Countdown channel not found.")
+
+def getPrefix(bot, ctx):
+    """
+    Get the bot prefix for a certain context.
+
+    Parameters
+    ----------
+    bot
+        The bot
+    ctx
+        The context
+    """
+
+    try:
+        return getCountdownChannel(ctx, resortToFirst=False)["prefixes"]
+    except:
+        return data["prefixes"]
 
 
 
@@ -414,7 +435,7 @@ with open(os.path.join(os.path.dirname(__file__), "data.json"), "a+") as f:
 
 
 # Create Discord bot
-bot = commands.Bot(command_prefix = ["c."], case_insensitive=True)
+bot = commands.Bot(command_prefix=getPrefix, case_insensitive=True)
 bot.remove_command("help")
 
 
@@ -465,21 +486,27 @@ async def on_command_error(ctx, error):
 
 @bot.command()
 async def activate(ctx):
+    """
+    Turns a channel into a countdown
+    """
+
     # Channel is already a coutndown
     if (str(ctx.channel.id) in data["countdowns"]):
         embed = discord.Embed(title="Error", description="This channel is already a countdown.", color=COLORS["error"])
         await ctx.send(embed=embed)
-    
+
     # Channel is a DM
     elif (not isinstance(ctx.channel, discord.channel.TextChannel)):
         embed = discord.Embed(title="Error", description="This command must be run inside a server.", color=COLORS["error"])
         await ctx.send(embed=embed)
-    
+
     # Channel is valid
     else:
         # Create countdown channel
         data["countdowns"][str(ctx.channel.id)] = {
             "server": ctx.channel.guild.id,
+            "timezone": 0,
+            "prefixes": data["prefixes"],
             "countdown": Countdown([])
         }
         saveData(data)
@@ -504,6 +531,53 @@ async def activate(ctx):
         print(f"Loaded messages from {bot.get_channel(ctx.channel.id)}")
         embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown.\nYou may start counting!", color=COLORS["embed"])
         await msg.edit(embed=embed)
+
+
+
+@bot.command()
+async def config(ctx, key=None, *args):
+    """
+    Shows and modifies countdown settings
+    """
+
+    # Create embed
+    embed = discord.Embed(title=":gear: Countdown Settings", color=COLORS["embed"])
+
+    # Get countdown channel
+    try:
+        channel = getCountdownChannel(ctx, resortToFirst=False)
+    except:
+        embed.color = COLORS["error"]
+        embed.description = "This command must be run in a countdown channel or a server with a countdown channel"
+    else:
+        # Get / set settings
+        if (key is None):
+            embed.description = f"**Command Prefixes:** `{'`, `'.join(channel['prefixes'])}`\n"
+            if (channel["timezone"] < 0):
+                embed.description += f"**Countdown Timezone:** UTC-{-1 * channel['timezone']}\n"
+            else:
+                embed.description += f"**Countdown Timezone:** UTC+{channel['timezone']}\n"
+        elif (len(args) == 0):
+            embed.color = COLORS["error"]
+            embed.description = f"Please provide a value for the setting"
+        elif (key in ["tz", "timezone"]):
+            try:
+                channel["timezone"] = int(args[0])
+            except:
+                channel["timezone"] = float(args[0])
+            embed.description = f"Done"
+        elif (key in ["prefix", "prefixes"]):
+            channel["prefixes"] = args
+            embed.description = f"Done"
+        else:
+            embed.color = COLORS["error"]
+            embed.description = f"Setting not found: `{key}`"
+
+    # Save changes
+    saveData(data)
+
+    # Send embed
+    await ctx.send(embed=embed)
 
 
 
@@ -572,11 +646,15 @@ async def contributors(ctx):
 
 @bot.command()
 async def deactivate(ctx):
+    """
+    Deactivates a countdown channel
+    """
+
     # Channel isn't a countdown
     if (str(ctx.channel.id) not in data["countdowns"]):
         embed = discord.Embed(title="Error", description="This channel isn't a countdown.", color=COLORS["error"])
         await ctx.send(embed=embed)
-    
+
     # Channel is valid
     else:
         # Add channel data
@@ -603,15 +681,16 @@ async def help(ctx, command=None):
             f"`{'`, `'.join(prefixes)}`",
         "utility-commands":
             "**-** `activate`: Turns a channel into a countdown\n" \
+            "**-** `config`: Shows and modifies bot and countdown settings\n" \
             "**-** `deactivate`: Deactivates a countdown channel\n" \
-            "**-** `help, h`: Shows help information\n" \
+            "**-** `help`, `h`: Shows help information\n" \
             "**-** `ping`: Pings the bot\n" \
             "**-** `reload`: Reloads the countdown cache\n",
         "analytics-commands":
-            "**-** `contributors, c`: Shows information about countdown contributors\n" \
-            "**-** `leaderboard, l`: Shows the countdown leaderboard\n" \
-            "**-** `progress, p`: Shows information about countdown progress\n" \
-            "**-** `speed, s`: Shows information about countdown speed\n",
+            "**-** `contributors`, `c`: Shows information about countdown contributors\n" \
+            "**-** `leaderboard`, `l`: Shows the countdown leaderboard\n" \
+            "**-** `progress`, `p`: Shows information about countdown progress\n" \
+            "**-** `speed,` `s`: Shows information about countdown speed\n",
         "behavior":
             "**-** Reacts with :no_entry: when a user counts out of turn\n" \
             "**-** Reacts with :x: when a user counts incorrectly\n" \
@@ -623,6 +702,17 @@ async def help(ctx, command=None):
             f"**Usage:** `{prefixes[0]}activate`\n" \
             "**Aliases:** none\n" \
             "**Arguments:** none\n",
+        "config":
+            "**Name:** config\n" \
+            "**Description:** Shows and modifies countdown settings\n" \
+            f"**Usage:** `{prefixes[0]}config [key value...]`\n" \
+            "**Aliases:** none\n" \
+            "**Arguments:**\n" \
+            "**-** `key`: The name of the setting to modify (see below).\n" \
+            "**-** `value`: The new value(s) for the setting. If no key-value pair is supplied, all settings will be shown.\n" \
+            "**Available Settings:**\n" \
+            "**-** `prefix`, `prefixes`: The prefix(es) for the bot. If there are multiple sets of prefixes in a server, only the first set will be enabled throughout the server.\n" \
+            "**-** `tz`, `timezone`: The UTC offset, in hours.\n",
         "contributors":
             "**Name:** contributors\n" \
             "**Description:** Shows information about countdown contributors\n" \
@@ -686,6 +776,8 @@ async def help(ctx, command=None):
         embed.description = f"Use `{prefixes[0]}help command` to get more info on a command"
     elif (command.lower() in ["activate"]):
         embed.description = help_text["activate"]
+    elif (command.lower() in ["config"]):
+        embed.description = help_text["config"]
     elif (command.lower() in ["c", "contributors"]):
         embed.description = help_text["contributors"]
     elif (command.lower() in ["deactivate"]):
@@ -836,7 +928,7 @@ async def progress(ctx):
         plt.gcf().autofmt_xdate()
 
         # Add data to graph
-        x = [stats["start"] + TIMEZONE] + [x["time"] + TIMEZONE for x in stats["progress"]]
+        x = [stats["start"] + timedelta(hours=channel["timezone"])] + [x["time"] + timedelta(hours=channel["timezone"]) for x in stats["progress"]]
         y = [0] + [x["progress"] for x in stats["progress"]]
         plt.plot(x, y)
 
@@ -845,9 +937,9 @@ async def progress(ctx):
         file = discord.File(tmp.name, filename="image.png")
 
         # Calculate embed data
-        start = (stats["start"] + TIMEZONE).date()
+        start = (stats["start"] + timedelta(hours=channel["timezone"])).date()
         startDiff = (datetime.utcnow() - stats["start"]).days
-        end = (stats["eta"] + TIMEZONE).date()
+        end = (stats["eta"] + timedelta(hours=channel["timezone"])).date()
         endDiff = (stats["eta"] - datetime.utcnow()).days
         if endDiff < 0: endDiff = 0
 
@@ -930,7 +1022,7 @@ async def speed(ctx, period=24.0):
         # Get stats
         stats = channel["countdown"].progress()
         period = timedelta(hours=period)
-        speed = channel["countdown"].speed(period, tz=TIMEZONE)
+        speed = channel["countdown"].speed(period, tz=timedelta(hours=channel["timezone"]))
 
         # Create plot
         plt.close()

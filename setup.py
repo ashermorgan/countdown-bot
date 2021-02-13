@@ -6,6 +6,7 @@ import os
 with open(os.path.join(os.path.dirname(__file__), "data.json"), "w") as f:
     data = {
         "token": "YOUR_TOKEN_HERE",
+        "prefixes": ["c."],
         "countdowns": {}
     }
     json.dump(data, f)
