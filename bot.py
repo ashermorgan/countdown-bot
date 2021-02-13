@@ -1,4 +1,5 @@
 # Import dependencies
+import copy
 from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
@@ -63,6 +64,27 @@ async def getUsername(id):
 
     user = await bot.fetch_user(id)
     return f"{user.name}#{user.discriminator}"
+
+def saveData(data):
+    """
+    Save countdown data to the data.json file.
+
+    Parameters
+    ----------
+    data : dict
+        The countdown data
+    """
+
+    # Copy data
+    obj = copy.deepcopy(data)
+
+    # Remove countdown objects
+    for countdown in obj["countdowns"]:
+        del obj["countdowns"][countdown]["countdown"]
+
+    # Save data
+    with open(os.path.join(os.path.dirname(__file__), "data.json"), "w") as f:
+        return json.dump(obj, f)
 
 def getCountdownChannel(ctx):
     """
@@ -441,6 +463,50 @@ async def on_command_error(ctx, error):
 
 
 
+@bot.command()
+async def activate(ctx):
+    # Channel is already a coutndown
+    if (str(ctx.channel.id) in data["countdowns"]):
+        embed = discord.Embed(title="Error", description="This channel is already a countdown.", color=COLORS["error"])
+        await ctx.send(embed=embed)
+    
+    # Channel is a DM
+    elif (not isinstance(ctx.channel, discord.channel.TextChannel)):
+        embed = discord.Embed(title="Error", description="This command must be run inside a server.", color=COLORS["error"])
+        await ctx.send(embed=embed)
+    
+    # Channel is valid
+    else:
+        # Create countdown channel
+        data["countdowns"][str(ctx.channel.id)] = {
+            "server": ctx.channel.guild.id,
+            "countdown": Countdown([])
+        }
+        saveData(data)
+
+        # Send initial responce
+        print(f"Activated {bot.get_channel(ctx.channel.id)} as a countdown")
+        embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown.\nPlease wait to start counting.", color=COLORS["embed"])
+        msg = await ctx.send(embed=embed)
+
+        # Get messages
+        rawMessages = await bot.get_channel(ctx.channel.id).history(limit=10100).flatten()
+        rawMessages.reverse()
+
+        # Create countdown
+        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([])
+
+        # Load messages
+        for rawMessage in rawMessages:
+            await data["countdowns"][str(ctx.channel.id)]["countdown"].parseMessage(rawMessage)
+
+        # Send final responce
+        print(f"Loaded messages from {bot.get_channel(ctx.channel.id)}")
+        embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown.\nYou may start counting!", color=COLORS["embed"])
+        await msg.edit(embed=embed)
+
+
+
 @bot.command(aliases=["c"])
 async def contributors(ctx):
     """
@@ -504,6 +570,26 @@ async def contributors(ctx):
 
 
 
+@bot.command()
+async def deactivate(ctx):
+    # Channel isn't a countdown
+    if (str(ctx.channel.id) not in data["countdowns"]):
+        embed = discord.Embed(title="Error", description="This channel isn't a countdown.", color=COLORS["error"])
+        await ctx.send(embed=embed)
+    
+    # Channel is valid
+    else:
+        # Add channel data
+        del data["countdowns"][str(ctx.channel.id)]
+        saveData(data)
+
+        # Send initial responce
+        print(f"Deactivated {bot.get_channel(ctx.channel.id)} as a countdown")
+        embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown.", color=COLORS["embed"])
+        await ctx.send(embed=embed)
+
+
+
 @bot.command(aliases=["h", ""])
 async def help(ctx, command=None):
     """
@@ -515,25 +601,39 @@ async def help(ctx, command=None):
     help_text = {
         "prefixes":
             f"`{'`, `'.join(prefixes)}`",
-        "commands":
-            "**-** `contributors, c`: Shows information about countdown contributors\n" \
+        "utility-commands":
+            "**-** `activate`: Turns a channel into a countdown\n" \
+            "**-** `deactivate`: Deactivates a countdown channel\n" \
             "**-** `help, h`: Shows help information\n" \
-            "**-** `leaderboard, l`: Shows the countdown leaderboard\n" \
             "**-** `ping`: Pings the bot\n" \
+            "**-** `reload`: Reloads the countdown cache\n",
+        "analytics-commands":
+            "**-** `contributors, c`: Shows information about countdown contributors\n" \
+            "**-** `leaderboard, l`: Shows the countdown leaderboard\n" \
             "**-** `progress, p`: Shows information about countdown progress\n" \
-            "**-** `reload`: Reloads the countdown cache\n" \
-            "**-** `speed, s`: Shows information about countdown speed\n" \
-            f"\nUse `{prefixes[0]}help command` to get more info on a command\n",
+            "**-** `speed, s`: Shows information about countdown speed\n",
         "behavior":
             "**-** Reacts with :no_entry: when a user counts out of turn\n" \
             "**-** Reacts with :x: when a user counts incorrectly\n" \
             "**-** Pins numbers divisible by 200\n" \
             "**-** Reacts with :partying_face: to the number 0\n",
+        "activate":
+            "**Name:** activate\n" \
+            "**Description:** Turns a channel into a countdown\n" \
+            f"**Usage:** `{prefixes[0]}activate`\n" \
+            "**Aliases:** none\n" \
+            "**Arguments:** none\n",
         "contributors":
             "**Name:** contributors\n" \
             "**Description:** Shows information about countdown contributors\n" \
             f"**Usage:** `{prefixes[0]}contributors|c`\n" \
             "**Aliases:** `c`\n" \
+            "**Arguments:** none\n",
+        "deactivate":
+            "**Name:** deactivate\n" \
+            "**Description:** Deactivates a countdown channel\n" \
+            f"**Usage:** `{prefixes[0]}deactivate`\n" \
+            "**Aliases:** none\n" \
             "**Arguments:** none\n",
         "help":
             "**Name:** help\n" \
@@ -580,10 +680,16 @@ async def help(ctx, command=None):
     embed=discord.Embed(title=":grey_question: countdown-bot Help", color=COLORS["embed"])
     if (command is None):
         embed.add_field(name="Command Prefixes :gear:", value=help_text["prefixes"], inline=False)
-        embed.add_field(name="Commands :wrench:", value=help_text["commands"], inline=False)
+        embed.add_field(name="Utility Commands :wrench:", value=help_text["utility-commands"], inline=False)
+        embed.add_field(name="Analytics Commands :bar_chart:", value=help_text["analytics-commands"], inline=False)
         embed.add_field(name="Behavior in Countdown Channels :robot:", value=help_text["behavior"], inline=False)
+        embed.description = f"Use `{prefixes[0]}help command` to get more info on a command"
+    elif (command.lower() in ["activate"]):
+        embed.description = help_text["activate"]
     elif (command.lower() in ["c", "contributors"]):
         embed.description = help_text["contributors"]
+    elif (command.lower() in ["deactivate"]):
+        embed.description = help_text["deactivate"]
     elif (command.lower() in ["h", "help"]):
         embed.description = help_text["help"]
     elif (command.lower() in ["l", "leaderboard"]):
