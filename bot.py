@@ -368,8 +368,13 @@ class Countdown:
             start = datetime.utcnow()
 
         # Get rate statistics
-        if (len(self.messages) > 1):
+        if (len(self.messages) > 1 and self.messages[-1].number == 0):
+            # The countdown has already finished
             rate = (total - current)/((self.messages[-1].timestamp - self.messages[0].timestamp) / timedelta(days=1))
+            eta = self.messages[-1].timestamp
+        elif (len(self.messages) > 1):
+            # The countdown is still going
+            rate = (total - current)/((datetime.utcnow() - self.messages[0].timestamp) / timedelta(days=1))
             eta = datetime.utcnow() + timedelta(days=current/rate)
         else:
             rate = 0
@@ -940,14 +945,16 @@ async def progress(ctx):
         start = (stats["start"] + timedelta(hours=channel["timezone"])).date()
         startDiff = (datetime.utcnow() - stats["start"]).days
         end = (stats["eta"] + timedelta(hours=channel["timezone"])).date()
-        endDiff = (stats["eta"] - datetime.utcnow()).days
-        if endDiff < 0: endDiff = 0
+        endDiff = stats["eta"] - datetime.utcnow()
 
         # Add content to embed
         embed.description = f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
         embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
         embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
-        embed.description += f"**Estimated End Date:** {end} ({endDiff:,} days from now)\n"
+        if endDiff < timedelta(seconds=0):
+            embed.description += f"**End Date:** {end} ({(-1 * endDiff).days:,} days ago)\n"
+        else:
+            embed.description += f"**Estimated End Date:** {end} ({endDiff.days:,} days from now)\n"
         embed.set_image(url="attachment://image.png")
 
     # Send embed
