@@ -566,6 +566,9 @@ async def config(ctx, key=None, *args):
                 embed.description += f"**Countdown Timezone:** UTC-{-1 * channel['timezone']}\n"
             else:
                 embed.description += f"**Countdown Timezone:** UTC+{channel['timezone']}\n"
+        elif (not ctx.message.author.guild_permissions.administrator):
+            embed.color = COLORS["error"]
+            embed.description = f"You must be an administrator to modify settings"
         elif (len(args) == 0):
             embed.color = COLORS["error"]
             embed.description = f"Please provide a value for the setting"
