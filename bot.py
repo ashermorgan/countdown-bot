@@ -15,6 +15,7 @@ import tempfile
 
 # Global variables
 data = {}
+loaded = 0  # percentage of countdowns fully loaded
 POINT_RULES = {
     "1000s": 1000,
     "1001s": 500,
@@ -455,6 +456,7 @@ async def on_ready():
 
     # Load messages
     global data
+    global loaded
     for channel in data["countdowns"]:
         # Get messages
         rawMessages = await bot.get_channel(int(channel)).history(limit=10100).flatten()
@@ -469,6 +471,8 @@ async def on_ready():
 
         # Print status
         print(f"Loaded messages from {bot.get_channel(int(channel))}")
+        loaded += (1 / len(data["countdowns"]))
+    loaded = 1
 
 
 
@@ -909,7 +913,10 @@ async def ping(ctx):
 
     embed=discord.Embed(title=":ping_pong: Pong!", color=COLORS["embed"])
     embed.description = f"**Latency:** {round(bot.latency * 1000)} ms\n"
-    embed.description += f"**Countdowns:** {len(data['countdowns'])}"
+    if (loaded == 1):
+        embed.description += "**Status:** Ready :white_check_mark:"
+    else:
+        embed.description += f"**Status:** Loading ({round(loaded * 100)}%) :clock3:"
     await ctx.send(embed=embed)
 
 
