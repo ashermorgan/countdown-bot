@@ -884,7 +884,7 @@ async def leaderboard(ctx, user=None):
         embed.description += f"**User:** <@{leaderboard[rank]['author']}>\n"
         embed.description += f"**Rank:** #{rank + 1:,}\n"
         embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
-        embed.description += f"**Total Contributions:** {leaderboard[rank]['contributions']:,}\n"
+        embed.description += f"**Total Contributions:** {leaderboard[rank]['contributions']:,} *({round(leaderboard[rank]['contributions'] / len(channel['countdown'].messages) * 100, 1)}%)*\n"
 
         # Add points breakdown
         rules = ""
