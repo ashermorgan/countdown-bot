@@ -587,7 +587,8 @@ async def config(ctx, key=None, *args):
             embed.description = f"Done"
         else:
             embed.color = COLORS["error"]
-            embed.description = f"Setting not found: `{key}`"
+            embed.description = f"Setting not found: `{key}`\n"
+            embed.description += f"Use `{(await bot.get_prefix(ctx))[0]}help config` to view the list of settings"
 
     # Save changes
     saveData(data)
@@ -625,9 +626,9 @@ async def contributors(ctx):
         plt.title("Countdown Contributors")
 
         # Add data to graph
-        x = [await getUsername(x["author"]) for x in contributors]
+        x = [x["author"] for x in contributors]
         y = [x["contributions"] for x in contributors]
-        plt.pie(y, labels=x, autopct="%1.1f%%", startangle = 90)
+        plt.pie(y, labels=[await getUsername(i) for i in x], autopct="%1.1f%%", startangle = 90)
 
         # Save graph
         plt.savefig(tmp.name)
@@ -638,10 +639,10 @@ async def contributors(ctx):
         ranks = ""
         users = ""
         contributions = ""
-        for i in range(0, len(x)):
+        for i in range(0, min(len(x), 20)):
             ranks += f"{i+1:,}\n"
-            contributions += f"{y[i]:,}\n"
-            users += f"{x[i]}\n"
+            contributions += f"{y[i]:,} *({round(y[i] / len(channel['countdown'].messages) * 100, 1)}%)*\n"
+            users += f"<@{x[i]}>\n"
         embed.add_field(name="Rank",value=ranks, inline=True)
         embed.add_field(name="User",value=users, inline=True)
         embed.add_field(name="Contributions",value=contributions, inline=True)
@@ -755,7 +756,7 @@ async def help(ctx, command=None):
             f"**Usage:** `{prefixes[0]}leaderboard|l [user]`\n" \
             "**Aliases:** `l`\n" \
             "**Arguments:**\n" \
-            "**-** `user`: The user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n",
+            "**-** `user`: The username of the user to view leaderboard information about. Nicknames are not currently supported. If no value is supplied, the leaderboard will be shown.\n",
         "ping":
             "**Name:** ping\n" \
             "**Description:** Pings the bot\n" \
@@ -847,7 +848,7 @@ async def leaderboard(ctx, user=None):
         ranks = ""
         points = ""
         users = ""
-        for i in range(0, len(leaderboard)):
+        for i in range(0, min(len(leaderboard), 20)):
             ranks += f"{i+1:,}\n"
             points += f"{leaderboard[i]['points']:,}\n"
             users += f"<@{leaderboard[i]['author']}>\n"
