@@ -65,6 +65,25 @@ async def getUsername(id):
     user = await bot.fetch_user(id)
     return f"{user.name}#{user.discriminator}"
 
+async def getNickname(server, id):
+    """
+    Get a user's nickname in a server
+
+    Parameters
+    ----------
+    server : int
+        The server ID
+    id : int
+        The user ID
+
+    Returns
+    -------
+    str
+        The nickname
+    """
+
+    return (await (bot.get_guild(server)).fetch_member(id)).nick
+
 def saveData(data):
     """
     Save countdown data to the data.json file.
@@ -756,7 +775,7 @@ async def help(ctx, command=None):
             f"**Usage:** `{prefixes[0]}leaderboard|l [user]`\n" \
             "**Aliases:** `l`\n" \
             "**Arguments:**\n" \
-            "**-** `user`: The username of the user to view leaderboard information about. Nicknames are not currently supported. If no value is supplied, the leaderboard will be shown.\n",
+            "**-** `user`: The username or nickname of the user to viewleaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n",
         "ping":
             "**Name:** ping\n" \
             "**Description:** Pings the bot\n" \
@@ -870,13 +889,23 @@ async def leaderboard(ctx, user=None):
         for contributor in leaderboard:
             contributor["name"] = await getUsername(contributor["author"])
 
-        # Get user rank
+        # Find user
         temp = [x["name"].lower().startswith(user.lower()) for x in leaderboard]
         if (True not in temp):
-            embed.color = COLORS["error"]
-            embed.description = f"User not found: `{user}`"
-            await ctx.send(embed=embed)
-            return
+            # Get nicknames from IDs
+            for contributor in leaderboard:
+                contributor["nick"] = await getNickname(channel["server"], contributor["author"])
+
+            # Find user
+            temp = [x["nick"].lower().startswith(user.lower()) for x in leaderboard]
+            if (True not in temp):
+                # User not found
+                embed.color = COLORS["error"]
+                embed.description = f"User not found: `{user}`"
+                await ctx.send(embed=embed)
+                return
+
+        # Get user rank
         rank = temp.index(True)
 
         # Add description
