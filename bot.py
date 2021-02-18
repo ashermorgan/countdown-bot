@@ -82,7 +82,7 @@ async def getNickname(server, id):
         The nickname
     """
 
-    return (await (bot.get_guild(server)).fetch_member(id)).nick
+    return (await (bot.get_guild(server)).fetch_member(id)).nick or await getUsername(id)
 
 def saveData(data):
     """
