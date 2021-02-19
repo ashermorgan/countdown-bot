@@ -523,12 +523,17 @@ async def activate(ctx):
 
     # Channel is already a coutndown
     if (str(ctx.channel.id) in data["countdowns"]):
-        embed = discord.Embed(title="Error", description="This channel is already a countdown.", color=COLORS["error"])
+        embed = discord.Embed(title="Error", description="This channel is already a countdown", color=COLORS["error"])
         await ctx.send(embed=embed)
 
     # Channel is a DM
     elif (not isinstance(ctx.channel, discord.channel.TextChannel)):
-        embed = discord.Embed(title="Error", description="This command must be run inside a server.", color=COLORS["error"])
+        embed = discord.Embed(title="Error", description="This command must be run inside a server", color=COLORS["error"])
+        await ctx.send(embed=embed)
+
+    # User isn't authorized
+    elif (not ctx.message.author.guild_permissions.administrator):
+        embed = discord.Embed(title="Error", description="You must be an administrator to turn a channel into a countdown", color=COLORS["error"])
         await ctx.send(embed=embed)
 
     # Channel is valid
@@ -544,7 +549,7 @@ async def activate(ctx):
 
         # Send initial responce
         print(f"Activated {bot.get_channel(ctx.channel.id)} as a countdown")
-        embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown.\nPlease wait to start counting.", color=COLORS["embed"])
+        embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
         msg = await ctx.send(embed=embed)
 
         # Get messages
@@ -560,7 +565,7 @@ async def activate(ctx):
 
         # Send final responce
         print(f"Loaded messages from {bot.get_channel(ctx.channel.id)}")
-        embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown.\nYou may start counting!", color=COLORS["embed"])
+        embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
         await msg.edit(embed=embed)
 
 
@@ -689,7 +694,12 @@ async def deactivate(ctx):
 
     # Channel isn't a countdown
     if (str(ctx.channel.id) not in data["countdowns"]):
-        embed = discord.Embed(title="Error", description="This channel isn't a countdown.", color=COLORS["error"])
+        embed = discord.Embed(title="Error", description="This channel isn't a countdown", color=COLORS["error"])
+        await ctx.send(embed=embed)
+
+    # User isn't authorized
+    elif (not ctx.message.author.guild_permissions.administrator):
+        embed = discord.Embed(title="Error", description="You must be an administrator to deactivate a countdown channel", color=COLORS["error"])
         await ctx.send(embed=embed)
 
     # Channel is valid
@@ -700,7 +710,7 @@ async def deactivate(ctx):
 
         # Send initial responce
         print(f"Deactivated {bot.get_channel(ctx.channel.id)} as a countdown")
-        embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown.", color=COLORS["embed"])
+        embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown", color=COLORS["embed"])
         await ctx.send(embed=embed)
 
 
@@ -738,7 +748,8 @@ async def help(ctx, command=None):
             "**Description:** Turns a channel into a countdown\n" \
             f"**Usage:** `{prefixes[0]}activate`\n" \
             "**Aliases:** none\n" \
-            "**Arguments:** none\n",
+            "**Arguments:** none\n" \
+            "**Notes:** Users must have admin permissions to turn a channel into a countdown\n",
         "config":
             "**Name:** config\n" \
             "**Description:** Shows and modifies countdown settings\n" \
@@ -749,58 +760,67 @@ async def help(ctx, command=None):
             "**-** `value`: The new value(s) for the setting. If no key-value pair is supplied, all settings will be shown.\n" \
             "**Available Settings:**\n" \
             "**-** `prefix`, `prefixes`: The prefix(es) for the bot. If there are multiple sets of prefixes in a server, only the first set will be enabled throughout the server.\n" \
-            "**-** `tz`, `timezone`: The UTC offset, in hours.\n",
+            "**-** `tz`, `timezone`: The UTC offset, in hours.\n" \
+            "**Notes:** Users must have admin permissions to modify settings\n",
         "contributors":
             "**Name:** contributors\n" \
             "**Description:** Shows information about countdown contributors\n" \
             f"**Usage:** `{prefixes[0]}contributors|c`\n" \
             "**Aliases:** `c`\n" \
-            "**Arguments:** none\n",
+            "**Arguments:** none\n" \
+            "**Notes:** The contributors embed will only show the top 20 contributors\n",
         "deactivate":
             "**Name:** deactivate\n" \
             "**Description:** Deactivates a countdown channel\n" \
             f"**Usage:** `{prefixes[0]}deactivate`\n" \
             "**Aliases:** none\n" \
-            "**Arguments:** none\n",
+            "**Arguments:** none\n" \
+            "**Notes:** Users must have admin permissions to deactivate a countdown channel\n",
         "help":
             "**Name:** help\n" \
             "**Description:** Shows help information\n" \
             f"**Usage:** `{prefixes[0]}help|h [command]`\n" \
             "**Aliases:** `h`\n" \
             "**Arguments:**\n" \
-            "**-** `command`: The command to view help information about. If no value is supplied, general help information will be shown.\n",
+            "**-** `command`: The command to view help information about. If no value is supplied, general help information will be shown.\n" \
+            "**Notes:** none\n",
         "leaderboard":
             "**Name:** leaderboard\n" \
             "**Description:** Shows the countdown leaderboard\n" \
             f"**Usage:** `{prefixes[0]}leaderboard|l [user]`\n" \
             "**Aliases:** `l`\n" \
             "**Arguments:**\n" \
-            "**-** `user`: The username or nickname of the user to viewleaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n",
+            "**-** `user`: The username or nickname of the user to viewleaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n" \
+            "**Notes:** The leaderboard embed will only show the top 20 contributors\n",
         "ping":
             "**Name:** ping\n" \
             "**Description:** Pings the bot\n" \
             f"**Usage:** `{prefixes[0]}ping`\n" \
             "**Aliases:** none\n" \
-            "**Arguments:** none\n",
+            "**Arguments:** none\n" \
+            "**Notes:** none\n",
         "progress":
             "**Name:** progress\n" \
             "**Description:** Shows information about countdown progress\n" \
             f"**Usage:** `{prefixes[0]}progress|p`\n" \
             "**Aliases:** `p`\n" \
-            "**Arguments:** none\n",
+            "**Arguments:** none\n" \
+            "**Notes:** none\n",
         "reload":
             "**Name:** reload\n" \
             "**Description:** Reloads the countdown cache\n" \
             f"**Usage:** `{prefixes[0]}reload`\n" \
             "**Aliases:** none\n" \
-            "**Arguments:** none\n",
+            "**Arguments:** none\n" \
+            "**Notes:** none\n",
         "speed":
             "**Name:** speed\n" \
             "**Description:** Shows information about countdown speed\n" \
             f"**Usage:** `{prefixes[0]}speed|s [period]`\n" \
             "**Aliases:** `s`\n" \
             "**Arguments:**\n" \
-            "**-** `period`: The size of the period in hours. The default is 24 hours.\n",
+            "**-** `period`: The size of the period in hours. The default is 24 hours.\n" \
+            "**Notes:** none\n",
     }
 
     # Create embed
