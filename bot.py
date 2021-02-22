@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import json
 import math
 from matplotlib import pyplot as plt
+from matplotlib.ticker import PercentFormatter
 import os
 import re
 import tempfile
@@ -623,7 +624,7 @@ async def config(ctx, key=None, *args):
 
 
 @bot.command(aliases=["c"])
-async def contributors(ctx):
+async def contributors(ctx, option=""):
     """
     Shows information about countdown contributors
     """
@@ -635,19 +636,53 @@ async def contributors(ctx):
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
+    # Get stats
+    stats = channel["countdown"].progress()
+    contributors = channel["countdown"].contributors()
+
     # Create embed
     embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors", color=COLORS["embed"])
 
     # Make sure the countdown has started
     if (len(channel["countdown"].messages) == 0):
         embed.description = "The countdown is empty."
-    else:
-        # Get stats
-        contributors = channel["countdown"].contributors()
-
+    elif (option.lower() in ["h", "history"]):
         # Create plot
         plt.close()
-        plt.title("Countdown Contributors")
+        plt.xlabel("Progress")
+        plt.ylabel("Percentage of Contributions")
+        ax = plt.gca()
+        ax.yaxis.set_major_formatter(PercentFormatter())
+
+        # Get historical contributor data
+        authors = {}
+        for author in contributors:
+            authors[author["author"]] = [{"progress":0, "percentage":0, "total":0}]
+        for message in channel["countdown"].messages:
+            for author in authors:
+                if (author == message.author):
+                    authors[author] += [{"progress":(stats["total"] - message.number), "percentage":(authors[author][-1]["total"] + 1)/(stats["total"] - message.number + 1) * 100, "total":authors[author][-1]["total"] + 1}]
+                else:
+                    authors[author] += [{"progress":(stats["total"] - message.number), "percentage":(authors[author][-1]["total"] + 0)/(stats["total"] - message.number + 1) * 100, "total":authors[author][-1]["total"] + 0}]
+
+        # Plot data and add legend
+        for author in list(authors.keys())[:min(len(authors), 15)]:
+            # Top 15 contributors get included in the legend
+            plt.plot([x["progress"] for x in authors[author]], [x["percentage"] for x in authors[author]], label=await getUsername(author))
+        for author in list(authors.keys())[15:max(len(authors), 15)]:
+            plt.plot([x["progress"] for x in authors[author]], [x["percentage"] for x in authors[author]])
+        plt.legend(bbox_to_anchor=(1,1.025), loc="upper left")
+
+        # Save graph
+        plt.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
+        file = discord.File(tmp.name, filename="image.png")
+
+        # Add content to embed
+        embed.description = f"**Countdown Channel:** <#{id}>"
+        embed.set_image(url="attachment://image.png")
+    elif (option == ""):
+        # Create plot
+        plt.close()
 
         # Add data to graph
         x = [x["author"] for x in contributors]
@@ -655,7 +690,7 @@ async def contributors(ctx):
         plt.pie(y, labels=[await getUsername(i) for i in x], autopct="%1.1f%%", startangle = 90)
 
         # Save graph
-        plt.savefig(tmp.name)
+        plt.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
         file = discord.File(tmp.name, filename="image.png")
 
         # Add content to embed
@@ -671,6 +706,10 @@ async def contributors(ctx):
         embed.add_field(name="User",value=users, inline=True)
         embed.add_field(name="Contributions",value=contributions, inline=True)
         embed.set_image(url="attachment://image.png")
+    else:
+        embed.color = COLORS["error"]
+        embed.description = f"Unrecognized option: `{option}`\n"
+        embed.description += f"Use `{(await bot.get_prefix(ctx))[0]}help contributors` to view help information"
 
     # Send embed
     try:
@@ -765,9 +804,10 @@ async def help(ctx, command=None):
         "contributors":
             "**Name:** contributors\n" \
             "**Description:** Shows information about countdown contributors\n" \
-            f"**Usage:** `{prefixes[0]}contributors|c`\n" \
+            f"**Usage:** `{prefixes[0]}contributors|c [history|h]`\n" \
             "**Aliases:** `c`\n" \
-            "**Arguments:** none\n" \
+            "**Arguments:**\n" \
+            "**-** `history`, `h`: Shows historical data about countdown contributors\n" \
             "**Notes:** The contributors embed will only show the top 20 contributors\n",
         "deactivate":
             "**Name:** deactivate\n" \
