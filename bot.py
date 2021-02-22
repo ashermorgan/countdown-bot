@@ -510,7 +510,10 @@ async def on_message(obj):
 @bot.event
 async def on_command_error(ctx, error):
     embed=discord.Embed(title="Error", description=str(error), color=COLORS["error"])
-    embed.description = str(error)
+    if (isinstance(error, commands.CommandNotFound)):
+        embed.description = f"Command not found: `{str(error)[9:-14]}`"
+    else:
+        embed.description = str(error)
     embed.description += f"\nUse `{(await bot.get_prefix(ctx))[0]}help` to view help information\n"
     await ctx.send(embed=embed)
 
@@ -602,11 +605,15 @@ async def config(ctx, key=None, *args):
             embed.color = COLORS["error"]
             embed.description = f"Please provide a value for the setting"
         elif (key in ["tz", "timezone"]):
+            embed.description = f"Done"
             try:
                 channel["timezone"] = int(args[0])
             except:
-                channel["timezone"] = float(args[0])
-            embed.description = f"Done"
+                try:
+                    channel["timezone"] = float(args[0])
+                except:
+                    embed.color = COLORS["error"]
+                    embed.description = f"Invalid timezone: {args[0]}"
         elif (key in ["prefix", "prefixes"]):
             channel["prefixes"] = args
             embed.description = f"Done"
@@ -1123,7 +1130,7 @@ async def reload(ctx):
 
 
 @bot.command(aliases=["s"])
-async def speed(ctx, period=24.0):
+async def speed(ctx, period="24.0"):
     """
     Shows information about countdown speed
     """
@@ -1138,44 +1145,51 @@ async def speed(ctx, period=24.0):
     # Create embed
     embed=discord.Embed(title=":stopwatch: Countdown Speed", color=COLORS["embed"])
 
-    if (len(channel["countdown"].messages) == 0):
-        embed.description = "The countdown is empty."
-    elif (period <= 0):
+    # Parse period
+    try:
+        period = float(period)
+    except:
         embed.color = COLORS["error"]
-        embed.description = "Hours must be greater than 0."
+        embed.description = "The period must be a number"
     else:
-        # Get stats
-        stats = channel["countdown"].progress()
-        period = timedelta(hours=period)
-        speed = channel["countdown"].speed(period, tz=timedelta(hours=channel["timezone"]))
-
-        # Create plot
-        plt.close()
-        plt.title("Countdown Speed")
-        plt.xlabel("Time")
-        plt.ylabel("Progress per Period")
-        plt.gcf().autofmt_xdate()
-
-        # Add data to graph
-        for i in range(0, len(speed[0])):
-            plt.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
-
-        # Save graph
-        plt.savefig(tmp.name)
-        file = discord.File(tmp.name, filename="image.png")
-
-        # Add content to embed
-        embed.description = f"**Countdown Channel:** <#{id}>\n\n"
-        embed.description += f"**Period Size:** {period}\n"
-        if (len(channel["countdown"].messages) > 1):
-            rate = (stats['total'] - stats['current'])/((channel["countdown"].messages[-1].timestamp - channel["countdown"].messages[0].timestamp) / period)
+        if (len(channel["countdown"].messages) == 0):
+            embed.description = "The countdown is empty."
+        elif (period < 0.01):
+            embed.color = COLORS["error"]
+            embed.description = "The period cannot be less than 0.01 hours"
         else:
-            rate = 0
-        embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
-        embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
-        embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
-        embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
-        embed.set_image(url="attachment://image.png")
+            # Get stats
+            stats = channel["countdown"].progress()
+            period = timedelta(hours=period)
+            speed = channel["countdown"].speed(period, tz=timedelta(hours=channel["timezone"]))
+
+            # Create plot
+            plt.close()
+            plt.title("Countdown Speed")
+            plt.xlabel("Time")
+            plt.ylabel("Progress per Period")
+            plt.gcf().autofmt_xdate()
+
+            # Add data to graph
+            for i in range(0, len(speed[0])):
+                plt.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
+
+            # Save graph
+            plt.savefig(tmp.name)
+            file = discord.File(tmp.name, filename="image.png")
+
+            # Add content to embed
+            embed.description = f"**Countdown Channel:** <#{id}>\n\n"
+            embed.description += f"**Period Size:** {period}\n"
+            if (len(channel["countdown"].messages) > 1):
+                rate = (stats['total'] - stats['current'])/((channel["countdown"].messages[-1].timestamp - channel["countdown"].messages[0].timestamp) / period)
+            else:
+                rate = 0
+            embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
+            embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
+            embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
+            embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
+            embed.set_image(url="attachment://image.png")
 
     # Send embed
     try:
