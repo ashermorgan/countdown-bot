@@ -792,11 +792,11 @@ async def help(ctx, command=None):
         "config":
             "**Name:** config\n" \
             "**Description:** Shows and modifies countdown settings\n" \
-            f"**Usage:** `{prefixes[0]}config [key value...]`\n" \
+            f"**Usage:** `{prefixes[0]}config [<key> <value>...]`\n" \
             "**Aliases:** none\n" \
             "**Arguments:**\n" \
-            "**-** `key`: The name of the setting to modify (see below).\n" \
-            "**-** `value`: The new value(s) for the setting. If no key-value pair is supplied, all settings will be shown.\n" \
+            "**-** `<key>`: The name of the setting to modify (see below).\n" \
+            "**-** `<value>`: The new value(s) for the setting. If no key-value pair is supplied, all settings will be shown.\n" \
             "**Available Settings:**\n" \
             "**-** `prefix`, `prefixes`: The prefix(es) for the bot. If there are multiple sets of prefixes in a server, only the first set will be enabled throughout the server.\n" \
             "**-** `tz`, `timezone`: The UTC offset, in hours.\n" \
@@ -819,18 +819,18 @@ async def help(ctx, command=None):
         "help":
             "**Name:** help\n" \
             "**Description:** Shows help information\n" \
-            f"**Usage:** `{prefixes[0]}help|h [command]`\n" \
+            f"**Usage:** `{prefixes[0]}help|h [<command>]`\n" \
             "**Aliases:** `h`\n" \
             "**Arguments:**\n" \
-            "**-** `command`: The command to view help information about. If no value is supplied, general help information will be shown.\n" \
+            "**-** `<command>`: The command to view help information about. If no value is supplied, general help information will be shown.\n" \
             "**Notes:** none\n",
         "leaderboard":
             "**Name:** leaderboard\n" \
             "**Description:** Shows the countdown leaderboard\n" \
-            f"**Usage:** `{prefixes[0]}leaderboard|l [user]`\n" \
+            f"**Usage:** `{prefixes[0]}leaderboard|l [<user>]`\n" \
             "**Aliases:** `l`\n" \
             "**Arguments:**\n" \
-            "**-** `user`: The username or nickname of the user to viewleaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n" \
+            "**-** `<user>`: The rank, username, or nickname of the user to viewleaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n" \
             "**Notes:** The leaderboard embed will only show the top 20 contributors\n",
         "ping":
             "**Name:** ping\n" \
@@ -856,10 +856,10 @@ async def help(ctx, command=None):
         "speed":
             "**Name:** speed\n" \
             "**Description:** Shows information about countdown speed\n" \
-            f"**Usage:** `{prefixes[0]}speed|s [period]`\n" \
+            f"**Usage:** `{prefixes[0]}speed|s [<period>]`\n" \
             "**Aliases:** `s`\n" \
             "**Arguments:**\n" \
-            "**-** `period`: The size of the period in hours. The default is 24 hours.\n" \
+            "**-** `<period>`: The size of the period in hours. The default is 24 hours.\n" \
             "**Notes:** none\n",
     }
 
@@ -945,28 +945,36 @@ async def leaderboard(ctx, user=None):
         embed.add_field(name="Numbers", value=rules, inline=True)
         embed.add_field(name="Points", value=values, inline=True)
     else:
-        # Get usernames from IDs
-        for contributor in leaderboard:
-            contributor["name"] = await getUsername(contributor["author"])
-
-        # Find user
-        temp = [x["name"].lower().startswith(user.lower()) for x in leaderboard]
-        if (True not in temp):
-            # Get nicknames from IDs
-            for contributor in leaderboard:
-                contributor["nick"] = await getNickname(channel["server"], contributor["author"])
-
-            # Find user
-            temp = [x["nick"].lower().startswith(user.lower()) for x in leaderboard]
-            if (True not in temp):
-                # User not found
+        try:
+            rank = int(user) - 1  # zero-based rank
+            if (rank < 0 or rank >= len(leaderboard)):
                 embed.color = COLORS["error"]
-                embed.description = f"User not found: `{user}`"
+                embed.description = f"Invalid rank: `{rank+1}`"
                 await ctx.send(embed=embed)
                 return
+        except:
+            # Get usernames from IDs
+            for contributor in leaderboard:
+                contributor["name"] = await getUsername(contributor["author"])
 
-        # Get user rank
-        rank = temp.index(True)
+            # Find user
+            temp = [x["name"].lower().startswith(user.lower()) for x in leaderboard]
+            if (True not in temp):
+                # Get nicknames from IDs
+                for contributor in leaderboard:
+                    contributor["nick"] = await getNickname(channel["server"], contributor["author"])
+
+                # Find user
+                temp = [x["nick"].lower().startswith(user.lower()) for x in leaderboard]
+                if (True not in temp):
+                    # User not found
+                    embed.color = COLORS["error"]
+                    embed.description = f"User not found: `{user}`"
+                    await ctx.send(embed=embed)
+                    return
+
+            # Get user rank
+            rank = temp.index(True)
 
         # Add description
         embed.description = f"**Countdown Channel:** <#{id}>\n\n"
