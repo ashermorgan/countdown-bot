@@ -214,8 +214,9 @@ class Countdown:
         Parse a message and adds it to the list of messages.
     """
 
-    def __init__(self, messages):
+    def __init__(self, messages, reactions):
         self.messages = messages
+        self.reactions = reactions
 
     def addMessage(self, message):
         """
@@ -267,6 +268,12 @@ class Countdown:
                 await rawMessage.add_reaction("🥳")
             if (self.messages[0].number >= 500 and message.number % (self.messages[0].number // 50) == 0):
                 await rawMessage.pin()
+            if (str(message.number) in self.reactions):
+                for reaction in self.reactions[str(message.number)]:
+                    try:
+                        await rawMessage.add_reaction(reaction)
+                    except:
+                        pass
         except MessageNotAllowedError:
             await rawMessage.add_reaction("⛔")
         except MessageIncorrectError:
@@ -483,7 +490,7 @@ async def on_ready():
         rawMessages.reverse()
 
         # Create countdown
-        data["countdowns"][channel]["countdown"] = Countdown([])
+        data["countdowns"][channel]["countdown"] = Countdown([], data["countdowns"][channel]["reactions"])
 
         # Load messages
         for rawMessage in rawMessages:
@@ -547,7 +554,8 @@ async def activate(ctx):
             "server": ctx.channel.guild.id,
             "timezone": 0,
             "prefixes": data["prefixes"],
-            "countdown": Countdown([])
+            "reactions": {},
+            "countdown": Countdown([], {})
         }
         saveData(data)
 
@@ -561,7 +569,7 @@ async def activate(ctx):
         rawMessages.reverse()
 
         # Create countdown
-        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([])
+        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([], {})
 
         # Load messages
         for rawMessage in rawMessages:
@@ -598,6 +606,12 @@ async def config(ctx, key=None, *args):
                 embed.description += f"**Countdown Timezone:** UTC-{-1 * channel['timezone']}\n"
             else:
                 embed.description += f"**Countdown Timezone:** UTC+{channel['timezone']}\n"
+            if (len(channel["reactions"]) == 0):
+                embed.description += f"**Reactions:** none\n"
+            else:
+                embed.description += f"**Reactions:**\n"
+            for reaction in channel["reactions"]:
+                embed.description += f"**-** #{reaction}: {', '.join(channel['reactions'][reaction])}\n"
         elif (not ctx.message.author.guild_permissions.administrator):
             embed.color = COLORS["error"]
             embed.description = f"You must be an administrator to modify settings"
@@ -617,6 +631,22 @@ async def config(ctx, key=None, *args):
         elif (key in ["prefix", "prefixes"]):
             channel["prefixes"] = args
             embed.description = f"Done"
+        elif (key in ["react"]):
+            try:
+                number = int(args[0])
+                if (number < 0):
+                    embed.color = COLORS["error"]
+                    embed.description = f"Number must be greater than zero"
+                elif (len(args) == 1):
+                    if (str(number) in channel["reactions"]):
+                        del channel["reactions"][str(number)]
+                    embed.description = f"Removed reactions for #{number}"
+                else:
+                    channel["reactions"][str(number)] = args[1:]
+                    embed.description = f"Updated reactions for #{number}"
+            except:
+                embed.color = COLORS["error"]
+                embed.description = f"Invalid number: {args[0]}"
         else:
             embed.color = COLORS["error"]
             embed.description = f"Setting not found: `{key}`\n"
@@ -807,6 +837,7 @@ async def help(ctx, command=None):
             "**Available Settings:**\n" \
             "**-** `prefix`, `prefixes`: The prefix(es) for the bot. If there are multiple sets of prefixes in a server, only the first set will be enabled throughout the server.\n" \
             "**-** `tz`, `timezone`: The UTC offset, in hours.\n" \
+            "**-** `react`: The reactions for a certain number. Ex: `react 0 :partying_face: :smile:`\n" \
             "**Notes:** Users must have admin permissions to modify settings\n",
         "contributors":
             "**Name:** contributors\n" \
@@ -1113,7 +1144,7 @@ async def reload(ctx):
         rawMessages.reverse()
 
         # Create countdown
-        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([])
+        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([], data["countdowns"][str(ctx.channel.id)]["reactions"])
 
         # Load messages
         for rawMessage in rawMessages:
