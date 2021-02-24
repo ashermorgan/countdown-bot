@@ -608,7 +608,7 @@ async def config(ctx, key=None, *args):
                 embed.description += f"**Reactions:** none\n"
             else:
                 embed.description += f"**Reactions:**\n"
-            for reaction in channel["reactions"]:
+            for reaction in sorted(channel["reactions"].keys(), reverse=True):
                 embed.description += f"**-** #{reaction}: {', '.join(channel['reactions'][reaction])}\n"
         elif (not ctx.message.author.guild_permissions.administrator):
             embed.color = COLORS["error"]
