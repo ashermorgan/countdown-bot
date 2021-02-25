@@ -3,7 +3,6 @@ import copy
 from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
-from dotenv import load_dotenv
 import json
 import math
 from matplotlib import pyplot as plt
@@ -1248,5 +1247,4 @@ async def speed(ctx, period="24.0"):
 
 # Run bot
 if (__name__ == "__main__"):
-    load_dotenv()
     bot.run(data["token"])
