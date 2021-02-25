@@ -132,7 +132,8 @@ def getCountdownChannel(ctx, resortToFirst=True):
 
     # Server with countdown channel
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
-        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x]["server"] == ctx.channel.guild.id]
+        # Get first countdown in this server that use the current prefix
+        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x]["server"] == ctx.channel.guild.id and ctx.prefix in data["countdowns"][x]["prefixes"]]
         if (len(serverChannels) > 0):
             return data["countdowns"][serverChannels[0]], serverChannels[0]
 
@@ -158,11 +159,23 @@ def getPrefix(bot, ctx):
         The context
     """
 
-    try:
-        channel, id = getCountdownChannel(ctx, resortToFirst=False)
-        return channel["prefixes"]
-    except:
-        return data["prefixes"]
+    # Countdown channel
+    global data
+    if (str(ctx.channel.id) in data["countdowns"]):
+        return data["countdowns"][str(ctx.channel.id)]["prefixes"]
+
+    # Server with countdown channels
+    if (isinstance(ctx.channel, discord.channel.TextChannel)):
+        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x]["server"] == ctx.channel.guild.id]
+        if (len(serverChannels) > 0):
+            # Get list of prefixes
+            prefixes = []
+            for channel in serverChannels:
+                prefixes += data["countdowns"][channel]["prefixes"]
+            return sorted(list(set(prefixes)))
+
+    # Return default prefixes
+    return data["prefixes"]
 
 
 
@@ -832,7 +845,7 @@ async def help(ctx, command=None):
             "**-** `<key>`: The name of the setting to modify (see below).\n" \
             "**-** `<value>`: The new value(s) for the setting. If no key-value pair is supplied, all settings will be shown.\n" \
             "**Available Settings:**\n" \
-            "**-** `prefix`, `prefixes`: The prefix(es) for the bot. If there are multiple sets of prefixes in a server, only the first set will be enabled throughout the server.\n" \
+            "**-** `prefix`, `prefixes`: The prefix(es) for the bot.\n" \
             "**-** `tz`, `timezone`: The UTC offset, in hours.\n" \
             "**-** `react`: The reactions for a certain number. Ex: `react 0 :partying_face: :smile:`\n" \
             "**Notes:** Users must have admin permissions to modify settings\n",
