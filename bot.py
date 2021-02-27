@@ -160,17 +160,17 @@ def getPrefix(bot, ctx):
 
     # Countdown channel
     global data
-    if (str(ctx.channel.id) in data["countdowns"]):
+    if (str(ctx.channel.id) in data["countdowns"] and len(data["countdowns"][str(ctx.channel.id)]["prefixes"]) > 0):
         return data["countdowns"][str(ctx.channel.id)]["prefixes"]
 
     # Server with countdown channels
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
         serverChannels = [x for x in data["countdowns"] if data["countdowns"][x]["server"] == ctx.channel.guild.id]
-        if (len(serverChannels) > 0):
-            # Get list of prefixes
-            prefixes = []
-            for channel in serverChannels:
-                prefixes += data["countdowns"][channel]["prefixes"]
+        # Get list of prefixes
+        prefixes = []
+        for channel in serverChannels:
+            prefixes += data["countdowns"][channel]["prefixes"]
+        if (len(prefixes) > 0):
             return sorted(list(set(prefixes)))
 
     # Return default prefixes
