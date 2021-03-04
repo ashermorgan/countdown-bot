@@ -515,7 +515,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(obj):
-    if bot.user.mentioned_in(obj):
+    if bot.user in obj.mentions:
         embed=discord.Embed(title="countdown-bot", description=f"Use `{(await bot.get_prefix(obj))[0]}help` to view help information", color=COLORS["embed"])
         await obj.channel.send(embed=embed)
     if (str(obj.channel.id) in data["countdowns"] and obj.author.name != "countdown-bot"):
