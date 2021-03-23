@@ -995,36 +995,33 @@ async def leaderboard(ctx, user=None):
         embed.add_field(name="Numbers", value=rules, inline=True)
         embed.add_field(name="Points", value=values, inline=True)
     else:
-        try:
-            rank = int(user) - 1  # zero-based rank
-            if (rank < 0 or rank >= len(leaderboard)):
-                embed.color = COLORS["error"]
-                embed.description = f"Invalid rank: `{rank+1}`"
-                await ctx.send(embed=embed)
-                return
-        except:
-            # Get usernames from IDs
+        rank = None
+        if (re.match("^\d+$", user) and int(user) > 0 and int(user) <= len(leaderboard)):
+            # Get user from rank
+            rank = int(user) - 1
+        elif (re.match("^<@!\d+>$", user) and int(user[3:-1]) in [x["author"] for x in leaderboard]):
+            # Get user from mention
+            rank = [x["author"] for x in leaderboard].index(int(user[3:-1]))
+        else:
+            # Get user from username
             for contributor in leaderboard:
-                contributor["name"] = await getUsername(contributor["author"])
-
-            # Find user
-            temp = [x["name"].lower().startswith(user.lower()) for x in leaderboard]
-            if (True not in temp):
-                # Get nicknames from IDs
+                username = await getUsername(contributor["author"])
+                if (username.lower().startswith(user.lower())):
+                    rank = leaderboard.index(contributor)
+            
+            if (rank == None):
+                # Get user from nickname
                 for contributor in leaderboard:
-                    contributor["nick"] = await getNickname(channel["server"], contributor["author"])
-
-                # Find user
-                temp = [x["nick"].lower().startswith(user.lower()) for x in leaderboard]
-                if (True not in temp):
+                    nickname = await getNickname(channel["server"], contributor["author"])
+                    if (nickname.lower().startswith(user.lower())):
+                        rank = leaderboard.index(contributor)
+                
+                if (rank == None):
                     # User not found
                     embed.color = COLORS["error"]
                     embed.description = f"User not found: `{user}`"
                     await ctx.send(embed=embed)
                     return
-
-            # Get user rank
-            rank = temp.index(True)
 
         # Add description
         embed.description = f"**Countdown Channel:** <#{id}>\n\n"
