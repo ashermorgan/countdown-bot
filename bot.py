@@ -736,7 +736,10 @@ async def contributors(ctx, option=""):
         # Add data to graph
         x = [x["author"] for x in contributors]
         y = [x["contributions"] for x in contributors]
-        ax.pie(y, labels=[await getUsername(i) for i in x], autopct="%1.1f%%", startangle = 90)
+        pieData = ax.pie(y, autopct="%1.1f%%", startangle=90)
+        
+        # Add legend
+        ax.legend(pieData[0], [await getUsername(i) for i in x[:min(len(x), 15)]], bbox_to_anchor=(1,1.025), loc="upper left")
 
         # Save graph
         fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
