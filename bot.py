@@ -171,7 +171,7 @@ def getPrefix(bot, ctx):
         for channel in serverChannels:
             prefixes += data["countdowns"][channel]["prefixes"]
         if (len(prefixes) > 0):
-            return sorted(list(set(prefixes)))
+            return list(dict.fromkeys(prefixes))
 
     # Return default prefixes
     return data["prefixes"]
