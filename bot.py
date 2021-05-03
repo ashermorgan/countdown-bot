@@ -318,6 +318,62 @@ class Countdown:
         # Return contributors
         return contributors
 
+    def eta(self, period=timedelta(days=1), tz=timedelta(hours=0)):
+        """
+        Get countdown eta statistics.
+
+        Parameters
+        ----------
+        period : timedelta
+            The period size. The default is 1 day.
+        tz : timedelta
+            The timezone. The default is +0 (UTC)
+
+        Returns
+        -------
+        list
+            The countdown eta statistics.
+        """
+
+        # Make sure countdown has at least two messages
+        if (len(self.messages) < 2):
+            return [[], []]
+
+        # Initialize period data
+        periodEnd = self.messages[0].timestamp + tz + period
+        lastMessage = 0
+
+        # Initialize result and add first data point
+        data = [[self.messages[0].timestamp + tz], [self.messages[0].timestamp + tz]]
+
+        # Calculate timestamp for last data point
+        if (self.messages[-1].number == 0):
+            end = self.messages[-1].timestamp + tz
+        else:
+            end = datetime.utcnow() + tz
+
+        # Add data points
+        while (periodEnd < end):
+            # Advance to last message in period
+            while (lastMessage+1 < len(self.messages) and self.messages[lastMessage+1].timestamp + tz < periodEnd):
+                lastMessage += 1
+
+            # Calculate data
+            rate = (self.messages[0].number - self.messages[lastMessage].number) / ((periodEnd - (self.messages[0].timestamp + tz)) / timedelta(days=1))
+            eta = periodEnd + timedelta(days=self.messages[lastMessage].number/rate)
+            data[0] += [periodEnd]
+            data[1] += [eta]
+
+            # Advance to next period
+            periodEnd += period
+
+        # Add last data point
+        data[0] += [end]
+        data[1] += [self.progress()["eta"]]
+
+        # Return eta data
+        return data
+
     def leaderboard(self):
         """
         Get countdown leaderboard.
@@ -737,7 +793,7 @@ async def contributors(ctx, option=""):
         x = [x["author"] for x in contributors]
         y = [x["contributions"] for x in contributors]
         pieData = ax.pie(y, autopct="%1.1f%%", startangle=90)
-        
+
         # Add legend
         ax.legend(pieData[0], [await getUsername(i) for i in x[:min(len(x), 15)]], bbox_to_anchor=(1,1.025), loc="upper left")
 
@@ -806,6 +862,88 @@ async def deactivate(ctx):
 
 
 
+@bot.command(aliases=["e"])
+async def eta(ctx, period="24.0"):
+    """
+    Shows information about the estimated completion date
+    """
+
+    # Get countdown channel
+    channel, id = getCountdownChannel(ctx)
+
+    # Create temp file
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+    tmp.close()
+
+    # Create embed
+    embed=discord.Embed(title=":calendar: Countdown Estimated Completion Date", color=COLORS["embed"])
+
+    # Parse period
+    try:
+        period = float(period)
+    except:
+        embed.color = COLORS["error"]
+        embed.description = "The period must be a number"
+    else:
+        if (len(channel["countdown"].messages) < 2):
+            embed.description = "The countdown must have at least two messages"
+        elif (period < 0.01):
+            embed.color = COLORS["error"]
+            embed.description = "The period cannot be less than 0.01 hours"
+        else:
+            # Get stats
+            eta = channel["countdown"].eta(timedelta(hours=period), tz=timedelta(hours=channel["timezone"]))
+
+            # Create figure
+            fig, ax = plt.subplots()
+            ax.set_xlabel("Time")
+            fig.autofmt_xdate()
+
+            # Add ETA data to graph
+            ax.plot(eta[0], eta[1], "C0", label="Estimated Completion Date")
+
+            # Add reference line graph
+            ax.plot([eta[0][0], eta[0][-1]], [eta[0][0], eta[0][-1]], "--C1", label="Current Date")
+
+            # Add legend
+            ax.legend()
+
+            # Save graph
+            fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
+            file = discord.File(tmp.name, filename="image.png")
+
+            # Calculate embed data
+            maxEta = max(eta[1])
+            maxDate = eta[0][eta[1].index(maxEta)]
+            minEta = min(eta[1][1:])
+            minDate = eta[0][eta[1].index(minEta)]
+            end = eta[1][-1] + timedelta(hours=channel["timezone"])
+            endDiff = eta[1][-1] - datetime.utcnow()
+
+            # Add content to embed
+            embed.description = f"**Countdown Channel:** <#{id}>\n\n"
+            embed.description += f"**Maximum Estimate:** {maxEta.date()} (on {maxDate.date()})\n"
+            embed.description += f"**Minimum Estimate:** {minEta.date()} (on {minDate.date()})\n"
+            if endDiff < timedelta(seconds=0):
+                embed.description += f"**Actual Completion Date:** {end.date()} ({(-1 * endDiff).days:,} days ago)\n"
+            else:
+                embed.description += f"**Current Estimate:** {end.date()} ({endDiff.days:,} days from now)\n"
+            embed.set_image(url="attachment://image.png")
+
+    # Send embed
+    try:
+        await ctx.send(file=file, embed=embed)
+    except:
+        await ctx.send(embed=embed)
+
+    # Remove temp file
+    try:
+        os.remove(tmp.name)
+    except:
+        print(f"Unable to delete temp file: {tmp.name}.")
+
+
+
 @bot.command(aliases=["h", ""])
 async def help(ctx, command=None):
     """
@@ -826,6 +964,7 @@ async def help(ctx, command=None):
             "**-** `reload`: Reloads the countdown cache\n",
         "analytics-commands":
             "**-** `contributors`, `c`: Shows information about countdown contributors\n" \
+            "**-** `eta`, `e`: Shows information about the estimated completion date\n" \
             "**-** `leaderboard`, `l`: Shows the countdown leaderboard\n" \
             "**-** `progress`, `p`: Shows information about countdown progress\n" \
             "**-** `speed`, `s`: Shows information about countdown speed\n",
@@ -868,6 +1007,14 @@ async def help(ctx, command=None):
             "**Aliases:** none\n" \
             "**Arguments:** none\n" \
             "**Notes:** Users must have admin permissions to deactivate a countdown channel\n",
+        "eta":
+            "**Name:** eta\n" \
+            "**Description:** Shows information about the estimated completion date\n" \
+            f"**Usage:** `{prefixes[0]}eta|e [<period>]`\n" \
+            "**Aliases:** `e`\n" \
+            "**Arguments:**\n" \
+            "**-** `<period>`: The size of the period in hours. The default is 24 hours.\n" \
+            "**Notes:** none\n",
         "help":
             "**Name:** help\n" \
             "**Description:** Shows help information\n" \
@@ -931,6 +1078,8 @@ async def help(ctx, command=None):
         embed.description = help_text["contributors"]
     elif (command.lower() in ["deactivate"]):
         embed.description = help_text["deactivate"]
+    elif (command.lower() in ["e", "eta"]):
+        embed.description = help_text["eta"]
     elif (command.lower() in ["h", "help"]):
         embed.description = help_text["help"]
     elif (command.lower() in ["l", "leaderboard"]):
@@ -1010,14 +1159,14 @@ async def leaderboard(ctx, user=None):
                 username = await getUsername(contributor["author"])
                 if (username.lower().startswith(user.lower())):
                     rank = leaderboard.index(contributor)
-            
+
             if (rank == None):
                 # Get user from nickname
                 for contributor in leaderboard:
                     nickname = await getNickname(channel["server"], contributor["author"])
                     if (nickname.lower().startswith(user.lower())):
                         rank = leaderboard.index(contributor)
-                
+
                 if (rank == None):
                     # User not found
                     embed.color = COLORS["error"]
