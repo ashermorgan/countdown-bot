@@ -651,6 +651,32 @@ async def activate(ctx):
 
 
 
+@bot.command(aliases=["a"])
+async def analytics(ctx):
+    """
+    Shows all countdown analytics
+    """
+
+    # Get countdown channel
+    channel, id = getCountdownChannel(ctx)
+
+    # Check if countdown is empty
+    if (len(channel["countdown"].messages) == 0):
+        embed=discord.Embed(title=":bar_chart: Countdown Analytics", color=COLORS["error"])
+        embed.description = "The countdown is empty"
+        await ctx.send(embed=embed)
+
+    # Run analytics commands
+    else:
+        await contributors(ctx, "")
+        await contributors(ctx, "history")
+        if (len(channel["countdown"].messages) >= 2): await eta(ctx)  # Countdown must have 2 messages to run eta command
+        await leaderboard(ctx)
+        await progress(ctx)
+        await speed(ctx)
+
+
+
 @bot.command()
 async def config(ctx, key=None, *args):
     """
@@ -751,6 +777,7 @@ async def contributors(ctx, option=""):
 
     # Make sure the countdown has started
     if (len(channel["countdown"].messages) == 0):
+        embed.color = COLORS["error"]
         embed.description = "The countdown is empty."
     elif (option.lower() in ["h", "history"]):
         # Create figure
@@ -886,6 +913,7 @@ async def eta(ctx, period="24.0"):
         embed.description = "The period must be a number"
     else:
         if (len(channel["countdown"].messages) < 2):
+            embed.color = COLORS["embed"]
             embed.description = "The countdown must have at least two messages"
         elif (period < 0.01):
             embed.color = COLORS["error"]
@@ -963,6 +991,7 @@ async def help(ctx, command=None):
             "**-** `ping`: Pings the bot\n" \
             "**-** `reload`: Reloads the countdown cache\n",
         "analytics-commands":
+            "**-** `analytics`, `a`: Shows all countdown analytics\n" \
             "**-** `contributors`, `c`: Shows information about countdown contributors\n" \
             "**-** `eta`, `e`: Shows information about the estimated completion date\n" \
             "**-** `leaderboard`, `l`: Shows the countdown leaderboard\n" \
@@ -979,6 +1008,13 @@ async def help(ctx, command=None):
             "**Aliases:** none\n" \
             "**Arguments:** none\n" \
             "**Notes:** Users must have admin permissions to turn a channel into a countdown\n",
+        "analytics":
+            "**Name:** analytics\n" \
+            "**Description:** Shows all countdown analytics\n" \
+            f"**Usage:** `{prefixes[0]}analytics|a`\n" \
+            "**Aliases:** `a`\n" \
+            "**Arguments:**\n" \
+            "**Notes:** none\n",
         "config":
             "**Name:** config\n" \
             "**Description:** Shows and modifies countdown settings\n" \
@@ -1072,6 +1108,8 @@ async def help(ctx, command=None):
         embed.description = f"Use `{prefixes[0]}help command` to get more info on a command"
     elif (command.lower() in ["activate"]):
         embed.description = help_text["activate"]
+    elif (command.lower() in ["a", "analytics"]):
+        embed.description = help_text["analytics"]
     elif (command.lower() in ["config"]):
         embed.description = help_text["config"]
     elif (command.lower() in ["c", "contributors"]):
@@ -1119,6 +1157,7 @@ async def leaderboard(ctx, user=None):
 
     # Make sure the countdown has started
     if (len(channel["countdown"].messages) == 0):
+        embed.color = COLORS["error"]
         embed.description = "The countdown is empty."
     elif (user is None):
         # Add description
@@ -1235,6 +1274,7 @@ async def progress(ctx):
 
     # Make sure the countdown has started
     if (len(channel["countdown"].messages) == 0):
+        embed.color = COLORS["error"]
         embed.description = "The countdown is empty."
     else:
         # Get progress stats
@@ -1343,6 +1383,7 @@ async def speed(ctx, period="24.0"):
         embed.description = "The period must be a number"
     else:
         if (len(channel["countdown"].messages) == 0):
+            embed.color = COLORS["error"]
             embed.description = "The countdown is empty."
         elif (period < 0.01):
             embed.color = COLORS["error"]
