@@ -15,7 +15,6 @@ import tempfile
 
 # Global variables
 data = {}
-loaded = 0  # percentage of countdowns fully loaded
 POINT_RULES = {
     "1000s": 1000,
     "1001s": 500,
@@ -97,44 +96,54 @@ def saveData(data):
     # Copy data
     obj = copy.deepcopy(data)
 
-    # Remove countdown objects
-    for countdown in obj["countdowns"]:
-        del obj["countdowns"][countdown]["countdown"]
+    # Format countdown objects
+    for countdown in data["countdowns"]:
+        obj["countdowns"][countdown] = {
+            "messages": [],
+            "server": data["countdowns"][countdown].server,
+            "timezone": data["countdowns"][countdown].timezone,
+            "prefixes": data["countdowns"][countdown].prefixes,
+            "reactions": data["countdowns"][countdown].reactions,
+        }
+        for message in data["countdowns"][countdown].messages:
+            obj["countdowns"][countdown]["messages"] += [{
+                "timestamp": message.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "author": message.author,
+                "number": message.number,
+            }]
 
     # Save data
     with open(os.path.join(os.path.dirname(__file__), "data.json"), "w") as f:
         return json.dump(obj, f)
 
-def getCountdownChannel(ctx, resortToFirst=True):
+def getCountdown(ctx, resortToFirst=True):
     """
-    Get the most relevant countdown channel to a certain context.
+    Get the most relevant countdown to a certain context.
 
     Parameters
     ----------
     ctx
         The context
     resortToFirst : bool
-        Whether to return the 1st countdown channel if no relevant countdown channels are found
+        Whether to return the 1st countdown if no relevant countdowns are found
 
     Returns
     -------
-    dict
-        The countdown channel
-    str
-        The channel ID
+    Countdown
+        The countdown
     """
 
     # Countdown channel
     global data
     if (str(ctx.channel.id) in data["countdowns"]):
-        return data["countdowns"][str(ctx.channel.id)], str(ctx.channel.id)
+        return data["countdowns"][str(ctx.channel.id)]
 
     # Server with countdown channel
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
         # Get first countdown in this server that use the current prefix
-        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x]["server"] == ctx.channel.guild.id and ctx.prefix in data["countdowns"][x]["prefixes"]]
+        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x].server == ctx.channel.guild.id and ctx.prefix in data["countdowns"][x].prefixes]
         if (len(serverChannels) > 0):
-            return data["countdowns"][serverChannels[0]], serverChannels[0]
+            return data["countdowns"][serverChannels[0]]
 
     # No countdown channels
     if (len(data["countdowns"]) == 0):
@@ -142,7 +151,7 @@ def getCountdownChannel(ctx, resortToFirst=True):
 
     # Return default countdown channel
     if resortToFirst:
-        return list(data["countdowns"].values())[0], list(data["countdowns"].keys())[0]
+        return list(data["countdowns"].values())[0]
     else:
         raise Exception("Countdown channel not found.")
 
@@ -160,16 +169,16 @@ def getPrefix(bot, ctx):
 
     # Countdown channel
     global data
-    if (str(ctx.channel.id) in data["countdowns"] and len(data["countdowns"][str(ctx.channel.id)]["prefixes"]) > 0):
-        return data["countdowns"][str(ctx.channel.id)]["prefixes"]
+    if (str(ctx.channel.id) in data["countdowns"] and len(data["countdowns"][str(ctx.channel.id)].prefixes) > 0):
+        return data["countdowns"][str(ctx.channel.id)].prefixes
 
     # Server with countdown channels
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
-        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x]["server"] == ctx.channel.guild.id]
+        serverChannels = [x for x in data["countdowns"] if data["countdowns"][x].server == ctx.channel.guild.id]
         # Get list of prefixes
         prefixes = []
         for channel in serverChannels:
-            prefixes += data["countdowns"][channel]["prefixes"]
+            prefixes += data["countdowns"][channel].prefixes
         if (len(prefixes) > 0):
             return list(dict.fromkeys(prefixes))
 
@@ -196,11 +205,18 @@ class Message:
     """
 
     def __init__(self, obj):
-        self.channel    = obj.channel.id
-        self.id         = obj.id
-        self.timestamp  = obj.created_at
-        self.author     = obj.author.id
-        self.number     = int(re.findall("^[0-9,]+", obj.content)[0].replace(",",""))
+        if (obj == None):
+            self.channel    = None
+            self.id         = None
+            self.timestamp  = None
+            self.author     = None
+            self.number     = None
+        else:
+            self.channel    = obj.channel.id
+            self.id         = obj.id
+            self.timestamp  = obj.created_at
+            self.author     = obj.author.id
+            self.number     = int(re.findall("^[0-9,]+", obj.content)[0].replace(",",""))
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, Message): return False
@@ -226,8 +242,12 @@ class Countdown:
         Parse a message and adds it to the list of messages.
     """
 
-    def __init__(self, messages, reactions):
+    def __init__(self, id, messages, server, timezone, prefixes, reactions):
+        self.id = id
         self.messages = messages
+        self.server = server
+        self.timezone = timezone
+        self.prefixes = prefixes
         self.reactions = reactions
 
     def addMessage(self, message):
@@ -532,7 +552,25 @@ class Countdown:
 # Load countdown data
 with open(os.path.join(os.path.dirname(__file__), "data.json"), "a+") as f:
     f.seek(0)
-    data = json.load(f)
+    rawData = json.load(f)
+    data = copy.deepcopy(rawData)
+    
+    # Format countdown objects
+    for countdown in rawData["countdowns"]:
+        data["countdowns"][countdown] = Countdown(
+            countdown,
+            [],
+            rawData["countdowns"][countdown]["server"],
+            rawData["countdowns"][countdown]["timezone"],
+            rawData["countdowns"][countdown]["prefixes"],
+            rawData["countdowns"][countdown]["reactions"],
+        )
+        for message in rawData["countdowns"][countdown]["messages"]:
+            messageObj = Message(None)
+            messageObj.timestamp = datetime.strptime(message["timestamp"], "%Y-%m-%d %H:%M:%S")
+            messageObj.author = message["author"]
+            messageObj.number = message["number"]
+            data["countdowns"][countdown].messages += [messageObj]
 
 
 
@@ -547,26 +585,6 @@ async def on_ready():
     # Print status
     print(f"Connected to Discord as {bot.user}")
 
-    # Load messages
-    global data
-    global loaded
-    for channel in data["countdowns"]:
-        # Get messages
-        rawMessages = await bot.get_channel(int(channel)).history(limit=10100).flatten()
-        rawMessages.reverse()
-
-        # Create countdown
-        data["countdowns"][channel]["countdown"] = Countdown([], data["countdowns"][channel]["reactions"])
-
-        # Load messages
-        for rawMessage in rawMessages:
-            await data["countdowns"][channel]["countdown"].parseMessage(rawMessage)
-
-        # Print status
-        print(f"Loaded messages from {bot.get_channel(int(channel))}")
-        loaded += (1 / len(data["countdowns"]))
-    loaded = 1
-
 
 
 @bot.event
@@ -575,7 +593,7 @@ async def on_message(obj):
         embed=discord.Embed(title="countdown-bot", description=f"Use `{(await bot.get_prefix(obj))[0]}help` to view help information", color=COLORS["embed"])
         await obj.channel.send(embed=embed)
     if (str(obj.channel.id) in data["countdowns"] and obj.author.name != "countdown-bot"):
-        await data["countdowns"][str(obj.channel.id)]["countdown"].parseMessage(obj)
+        await data["countdowns"][str(obj.channel.id)].parseMessage(obj)
     try:
         await bot.process_commands(obj)
     except:
@@ -619,14 +637,7 @@ async def activate(ctx):
     # Channel is valid
     else:
         # Create countdown channel
-        data["countdowns"][str(ctx.channel.id)] = {
-            "server": ctx.channel.guild.id,
-            "timezone": 0,
-            "prefixes": data["prefixes"],
-            "reactions": {},
-            "countdown": Countdown([], {})
-        }
-        saveData(data)
+        data["countdowns"][str(ctx.channel.id)] = Countdown(ctx.channel.id, [], ctx.channel.guild.id, 0, data["prefixes"], {})
 
         # Send initial responce
         print(f"Activated {bot.get_channel(ctx.channel.id)} as a countdown")
@@ -637,12 +648,10 @@ async def activate(ctx):
         rawMessages = await bot.get_channel(ctx.channel.id).history(limit=10100).flatten()
         rawMessages.reverse()
 
-        # Create countdown
-        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([], {})
-
         # Load messages
         for rawMessage in rawMessages:
-            await data["countdowns"][str(ctx.channel.id)]["countdown"].parseMessage(rawMessage)
+            await data["countdowns"][str(ctx.channel.id)].parseMessage(rawMessage)
+        saveData(data)
 
         # Send final responce
         print(f"Loaded messages from {bot.get_channel(ctx.channel.id)}")
@@ -658,10 +667,10 @@ async def analytics(ctx):
     """
 
     # Get countdown channel
-    channel, id = getCountdownChannel(ctx)
+    countdown = getCountdown(ctx)
 
     # Check if countdown is empty
-    if (len(channel["countdown"].messages) == 0):
+    if (len(countdown.messages) == 0):
         embed=discord.Embed(title=":bar_chart: Countdown Analytics", color=COLORS["error"])
         embed.description = "The countdown is empty"
         await ctx.send(embed=embed)
@@ -670,7 +679,7 @@ async def analytics(ctx):
     else:
         await contributors(ctx, "")
         await contributors(ctx, "history")
-        if (len(channel["countdown"].messages) >= 2): await eta(ctx)  # Countdown must have 2 messages to run eta command
+        if (len(countdown.messages) >= 2): await eta(ctx)  # Countdown must have 2 messages to run eta command
         await leaderboard(ctx)
         await progress(ctx)
         await speed(ctx)
@@ -688,25 +697,25 @@ async def config(ctx, key=None, *args):
 
     # Get countdown channel
     try:
-        channel, id = getCountdownChannel(ctx, resortToFirst=False)
+        countdown = getCountdown(ctx, resortToFirst=False)
     except:
         embed.color = COLORS["error"]
         embed.description = "This command must be run in a countdown channel or a server with a countdown channel"
     else:
         # Get / set settings
         if (key is None):
-            embed.description = f"**Countdown Channel:** <#{id}>\n"
-            embed.description += f"**Command Prefixes:** `{'`, `'.join(channel['prefixes'])}`\n"
-            if (channel["timezone"] < 0):
-                embed.description += f"**Countdown Timezone:** UTC-{-1 * channel['timezone']}\n"
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
+            embed.description += f"**Command Prefixes:** `{'`, `'.join(countdown.prefixes)}`\n"
+            if (countdown.timezone < 0):
+                embed.description += f"**Countdown Timezone:** UTC-{-1 * countdown.timezone}\n"
             else:
-                embed.description += f"**Countdown Timezone:** UTC+{channel['timezone']}\n"
-            if (len(channel["reactions"]) == 0):
+                embed.description += f"**Countdown Timezone:** UTC+{countdown.timezone}\n"
+            if (len(countdown.reactions) == 0):
                 embed.description += f"**Reactions:** none\n"
             else:
                 embed.description += f"**Reactions:**\n"
-            for reaction in sorted(channel["reactions"].keys(), reverse=True):
-                embed.description += f"**-** #{reaction}: {', '.join(channel['reactions'][reaction])}\n"
+            for reaction in sorted(countdown.reactions.keys(), reverse=True):
+                embed.description += f"**-** #{reaction}: {', '.join(countdown.reactions[reaction])}\n"
         elif (not ctx.message.author.guild_permissions.administrator):
             embed.color = COLORS["error"]
             embed.description = f"You must be an administrator to modify settings"
@@ -716,15 +725,15 @@ async def config(ctx, key=None, *args):
         elif (key in ["tz", "timezone"]):
             embed.description = f"Done"
             try:
-                channel["timezone"] = int(args[0])
+                countdown.timezone = int(args[0])
             except:
                 try:
-                    channel["timezone"] = float(args[0])
+                    countdown.timezone = float(args[0])
                 except:
                     embed.color = COLORS["error"]
                     embed.description = f"Invalid timezone: {args[0]}"
         elif (key in ["prefix", "prefixes"]):
-            channel["prefixes"] = args
+            countdown.prefixes = args
             embed.description = f"Done"
         elif (key in ["react"]):
             try:
@@ -733,11 +742,11 @@ async def config(ctx, key=None, *args):
                     embed.color = COLORS["error"]
                     embed.description = f"Number must be greater than zero"
                 elif (len(args) == 1):
-                    if (str(number) in channel["reactions"]):
-                        del channel["reactions"][str(number)]
+                    if (str(number) in countdown.reactions):
+                        del countdown.reactions[str(number)]
                     embed.description = f"Removed reactions for #{number}"
                 else:
-                    channel["reactions"][str(number)] = args[1:]
+                    countdown.reactions[str(number)] = args[1:]
                     embed.description = f"Updated reactions for #{number}"
             except:
                 embed.color = COLORS["error"]
@@ -762,21 +771,21 @@ async def contributors(ctx, option=""):
     """
 
     # Get countdown channel
-    channel, id = getCountdownChannel(ctx)
+    countdown = getCountdown(ctx)
 
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
     tmp.close()
 
     # Get stats
-    stats = channel["countdown"].progress()
-    contributors = channel["countdown"].contributors()
+    stats = countdown.progress()
+    contributors = countdown.contributors()
 
     # Create embed
     embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors", color=COLORS["embed"])
 
     # Make sure the countdown has started
-    if (len(channel["countdown"].messages) == 0):
+    if (len(countdown.messages) == 0):
         embed.color = COLORS["error"]
         embed.description = "The countdown is empty."
     elif (option.lower() in ["h", "history"]):
@@ -790,7 +799,7 @@ async def contributors(ctx, option=""):
         authors = {}
         for author in contributors:
             authors[author["author"]] = [{"progress":0, "percentage":0, "total":0}]
-        for message in channel["countdown"].messages:
+        for message in countdown.messages:
             for author in authors:
                 if (author == message.author):
                     authors[author] += [{"progress":(stats["total"] - message.number), "percentage":(authors[author][-1]["total"] + 1)/(stats["total"] - message.number + 1) * 100, "total":authors[author][-1]["total"] + 1}]
@@ -810,7 +819,7 @@ async def contributors(ctx, option=""):
         file = discord.File(tmp.name, filename="image.png")
 
         # Add content to embed
-        embed.description = f"**Countdown Channel:** <#{id}>"
+        embed.description = f"**Countdown Channel:** <#{countdown.id}>"
         embed.set_image(url="attachment://image.png")
     elif (option == ""):
         # Create figure
@@ -829,13 +838,13 @@ async def contributors(ctx, option=""):
         file = discord.File(tmp.name, filename="image.png")
 
         # Add content to embed
-        embed.description = f"**Countdown Channel:** <#{id}>"
+        embed.description = f"**Countdown Channel:** <#{countdown.id}>"
         ranks = ""
         users = ""
         contributions = ""
         for i in range(0, min(len(x), 20)):
             ranks += f"{i+1:,}\n"
-            contributions += f"{y[i]:,} *({round(y[i] / len(channel['countdown'].messages) * 100, 1)}%)*\n"
+            contributions += f"{y[i]:,} *({round(y[i] / len(countdown.messages) * 100, 1)}%)*\n"
             users += f"<@{x[i]}>\n"
         embed.add_field(name="Rank",value=ranks, inline=True)
         embed.add_field(name="User",value=users, inline=True)
@@ -896,7 +905,7 @@ async def eta(ctx, period="24.0"):
     """
 
     # Get countdown channel
-    channel, id = getCountdownChannel(ctx)
+    countdown = getCountdown(ctx)
 
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -912,7 +921,7 @@ async def eta(ctx, period="24.0"):
         embed.color = COLORS["error"]
         embed.description = "The period must be a number"
     else:
-        if (len(channel["countdown"].messages) < 2):
+        if (len(countdown.messages) < 2):
             embed.color = COLORS["embed"]
             embed.description = "The countdown must have at least two messages"
         elif (period < 0.01):
@@ -920,7 +929,7 @@ async def eta(ctx, period="24.0"):
             embed.description = "The period cannot be less than 0.01 hours"
         else:
             # Get stats
-            eta = channel["countdown"].eta(timedelta(hours=period), tz=timedelta(hours=channel["timezone"]))
+            eta = countdown.eta(timedelta(hours=period), tz=timedelta(hours=countdown.timezone))
 
             # Create figure
             fig, ax = plt.subplots()
@@ -945,11 +954,11 @@ async def eta(ctx, period="24.0"):
             maxDate = eta[0][eta[1].index(maxEta)]
             minEta = min(eta[1][1:])
             minDate = eta[0][eta[1].index(minEta)]
-            end = eta[1][-1] + timedelta(hours=channel["timezone"])
+            end = eta[1][-1] + timedelta(hours=countdown.timezone)
             endDiff = eta[1][-1] - datetime.utcnow()
 
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{id}>\n\n"
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
             embed.description += f"**Maximum Estimate:** {maxEta.date()} (on {maxDate.date()})\n"
             embed.description += f"**Minimum Estimate:** {minEta.date()} (on {minDate.date()})\n"
             if endDiff < timedelta(seconds=0):
@@ -1147,21 +1156,21 @@ async def leaderboard(ctx, user=None):
     """
 
     # Get countdown channel
-    channel, id = getCountdownChannel(ctx)
+    countdown = getCountdown(ctx)
 
     # Get leaderboard
-    leaderboard = channel["countdown"].leaderboard()
+    leaderboard = countdown.leaderboard()
 
     # Create embed
     embed=discord.Embed(title=":trophy: Countdown Leaderboard", color=COLORS["embed"])
 
     # Make sure the countdown has started
-    if (len(channel["countdown"].messages) == 0):
+    if (len(countdown.messages) == 0):
         embed.color = COLORS["error"]
         embed.description = "The countdown is empty."
     elif (user is None):
         # Add description
-        embed.description = f"**Countdown Channel:** <#{id}>"
+        embed.description = f"**Countdown Channel:** <#{countdown.id}>"
 
         # Add leaderboard
         ranks = ""
@@ -1202,7 +1211,7 @@ async def leaderboard(ctx, user=None):
             if (rank == None):
                 # Get user from nickname
                 for contributor in leaderboard:
-                    nickname = await getNickname(channel["server"], contributor["author"])
+                    nickname = await getNickname(countdown.server, contributor["author"])
                     if (nickname.lower().startswith(user.lower())):
                         rank = leaderboard.index(contributor)
 
@@ -1214,11 +1223,11 @@ async def leaderboard(ctx, user=None):
                     return
 
         # Add description
-        embed.description = f"**Countdown Channel:** <#{id}>\n\n"
+        embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
         embed.description += f"**User:** <@{leaderboard[rank]['author']}>\n"
         embed.description += f"**Rank:** #{rank + 1:,}\n"
         embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
-        embed.description += f"**Total Contributions:** {leaderboard[rank]['contributions']:,} *({round(leaderboard[rank]['contributions'] / len(channel['countdown'].messages) * 100, 1)}%)*\n"
+        embed.description += f"**Total Contributions:** {leaderboard[rank]['contributions']:,} *({round(leaderboard[rank]['contributions'] / len(countdown.messages) * 100, 1)}%)*\n"
 
         # Add points breakdown
         rules = ""
@@ -1248,10 +1257,6 @@ async def ping(ctx):
 
     embed=discord.Embed(title=":ping_pong: Pong!", color=COLORS["embed"])
     embed.description = f"**Latency:** {round(bot.latency * 1000)} ms\n"
-    if (loaded == 1):
-        embed.description += "**Status:** Ready :white_check_mark:"
-    else:
-        embed.description += f"**Status:** Loading ({round(loaded * 100)}%) :clock3:"
     await ctx.send(embed=embed)
 
 
@@ -1263,7 +1268,7 @@ async def progress(ctx):
     """
 
     # Get countdown channel
-    channel, id = getCountdownChannel(ctx)
+    countdown = getCountdown(ctx)
 
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -1273,12 +1278,12 @@ async def progress(ctx):
     embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress", color=COLORS["embed"])
 
     # Make sure the countdown has started
-    if (len(channel["countdown"].messages) == 0):
+    if (len(countdown.messages) == 0):
         embed.color = COLORS["error"]
         embed.description = "The countdown is empty."
     else:
         # Get progress stats
-        stats = channel["countdown"].progress()
+        stats = countdown.progress()
 
         # Create figure
         fig, ax = plt.subplots()
@@ -1287,7 +1292,7 @@ async def progress(ctx):
         fig.autofmt_xdate()
 
         # Add data to graph
-        x = [stats["start"] + timedelta(hours=channel["timezone"])] + [x["time"] + timedelta(hours=channel["timezone"]) for x in stats["progress"]]
+        x = [stats["start"] + timedelta(hours=countdown.timezone)] + [x["time"] + timedelta(hours=countdown.timezone) for x in stats["progress"]]
         y = [0] + [x["progress"] for x in stats["progress"]]
         ax.plot(x, y)
 
@@ -1296,13 +1301,13 @@ async def progress(ctx):
         file = discord.File(tmp.name, filename="image.png")
 
         # Calculate embed data
-        start = (stats["start"] + timedelta(hours=channel["timezone"])).date()
+        start = (stats["start"] + timedelta(hours=countdown.timezone)).date()
         startDiff = (datetime.utcnow() - stats["start"]).days
-        end = (stats["eta"] + timedelta(hours=channel["timezone"])).date()
+        end = (stats["eta"] + timedelta(hours=countdown.timezone)).date()
         endDiff = stats["eta"] - datetime.utcnow()
 
         # Add content to embed
-        embed.description = f"**Countdown Channel:** <#{id}>\n\n"
+        embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
         embed.description += f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
         embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
         embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
@@ -1343,11 +1348,12 @@ async def reload(ctx):
         rawMessages.reverse()
 
         # Create countdown
-        data["countdowns"][str(ctx.channel.id)]["countdown"] = Countdown([], data["countdowns"][str(ctx.channel.id)]["reactions"])
+        data["countdowns"][str(ctx.channel.id)].messages = []
 
         # Load messages
         for rawMessage in rawMessages:
-            await data["countdowns"][str(ctx.channel.id)]["countdown"].parseMessage(rawMessage)
+            await data["countdowns"][str(ctx.channel.id)].parseMessage(rawMessage)
+        saveData(data)
 
         # Send final responce
         print(f"Reloaded messages from {bot.get_channel(ctx.channel.id)}")
@@ -1366,7 +1372,7 @@ async def speed(ctx, period="24.0"):
     """
 
     # Get countdown channel
-    channel, id = getCountdownChannel(ctx)
+    countdown = getCountdown(ctx)
 
     # Create temp file
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -1382,7 +1388,7 @@ async def speed(ctx, period="24.0"):
         embed.color = COLORS["error"]
         embed.description = "The period must be a number"
     else:
-        if (len(channel["countdown"].messages) == 0):
+        if (len(countdown.messages) == 0):
             embed.color = COLORS["error"]
             embed.description = "The countdown is empty."
         elif (period < 0.01):
@@ -1390,9 +1396,9 @@ async def speed(ctx, period="24.0"):
             embed.description = "The period cannot be less than 0.01 hours"
         else:
             # Get stats
-            stats = channel["countdown"].progress()
+            stats = countdown.progress()
             period = timedelta(hours=period)
-            speed = channel["countdown"].speed(period, tz=timedelta(hours=channel["timezone"]))
+            speed = countdown.speed(period, tz=timedelta(hours=countdown.timezone))
 
             # Create figure
             fig, ax = plt.subplots()
@@ -1409,10 +1415,10 @@ async def speed(ctx, period="24.0"):
             file = discord.File(tmp.name, filename="image.png")
 
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{id}>\n\n"
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
             embed.description += f"**Period Size:** {period}\n"
-            if (len(channel["countdown"].messages) > 1):
-                rate = (stats['total'] - stats['current'])/((channel["countdown"].messages[-1].timestamp - channel["countdown"].messages[0].timestamp) / period)
+            if (len(countdown.messages) > 1):
+                rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
             else:
                 rate = 0
             embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
