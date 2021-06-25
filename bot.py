@@ -15,8 +15,36 @@ import tempfile
 
 
 
+# Global variables
+settings = {}
+POINT_RULES = {
+    "1000s": 1000,
+    "1001s": 500,
+    "200s": 200,
+    "201s": 100,
+    "100s": 100,
+    "101s": 50,
+    "Prime Numbers": 15,
+    "Odd Numbers": 12,
+    "Even Numbers": 10,
+    "First Number": 0,
+}
+COLORS = {
+    "error": 0xD52C42,
+    "embed": 0x248AD1,
+}
+
+
+
+# Load settings
+with open(os.path.join(os.path.dirname(__file__), "settings.json"), "a+") as f:
+    f.seek(0)
+    settings = json.load(f)
+
+
+
 # Connect to database
-engine = create_engine("sqlite:///data.db")
+engine = create_engine(settings["database"])
 
 # Define tables
 Base = declarative_base()
@@ -319,27 +347,6 @@ Session = sessionmaker(bind=engine)
 
 
 
-# Global variables
-settings = {}
-POINT_RULES = {
-    "1000s": 1000,
-    "1001s": 500,
-    "200s": 200,
-    "201s": 100,
-    "100s": 100,
-    "101s": 50,
-    "Prime Numbers": 15,
-    "Odd Numbers": 12,
-    "Even Numbers": 10,
-    "First Number": 0,
-}
-COLORS = {
-    "error": 0xD52C42,
-    "embed": 0x248AD1,
-}
-
-
-
 # Error classes
 class MessageNotAllowedError(Exception):
     """Raised when someone posts twice in a row."""
@@ -567,13 +574,6 @@ async def loadCountdown(bot, countdown):
     # Add messages to countdown
     for rawMessage in rawMessages:
         await addMessage(countdown, rawMessage)
-
-
-
-# Load countdown settings
-with open(os.path.join(os.path.dirname(__file__), "settings.json"), "a+") as f:
-    f.seek(0)
-    settings = json.load(f)
 
 
 

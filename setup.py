@@ -6,6 +6,7 @@ import os
 with open(os.path.join(os.path.dirname(__file__), "settings.json"), "w") as f:
     data = {
         "token": "YOUR_TOKEN_HERE",
-        "prefixes": ["c."]
+        "prefixes": ["c."],
+        "database": "sqlite:///data.sqlite3"
     }
     json.dump(data, f)
