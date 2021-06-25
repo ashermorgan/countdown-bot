@@ -320,7 +320,7 @@ Session = sessionmaker(bind=engine)
 
 
 # Global variables
-data = {}
+settings = {}
 POINT_RULES = {
     "1000s": 1000,
     "1001s": 500,
@@ -427,7 +427,7 @@ def getContextCountdown(session, ctx, resortToFirst=True):
         The countdown
     """
 
-    global data
+    global settings
 
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
         # Countdown channel
@@ -457,7 +457,7 @@ def getPrefix(bot, ctx):
 
     with Session() as session:
         # Countdown channel
-        global data
+        global settings
         countdown = getCountdown(session, ctx.channel.id)
         if (countdown and len(countdown.prefixes) > 0):
             return [x.value for x in countdown.prefixes]
@@ -473,7 +473,7 @@ def getPrefix(bot, ctx):
                 return list(dict.fromkeys(prefixes))
 
         # Return default prefixes
-        return data["prefixes"]
+        return settings["prefixes"]
 
 def parseMessage(message):
     """
@@ -570,10 +570,10 @@ async def loadCountdown(bot, countdown):
 
 
 
-# Load countdown data
-with open(os.path.join(os.path.dirname(__file__), "data.json"), "a+") as f:
+# Load countdown settings
+with open(os.path.join(os.path.dirname(__file__), "settings.json"), "a+") as f:
     f.seek(0)
-    data = json.load(f)
+    settings = json.load(f)
 
 
 
@@ -653,7 +653,7 @@ async def activate(ctx):
                 id = ctx.channel.id,
                 server_id = ctx.channel.guild.id,
                 timezone = 0,
-                prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in data["prefixes"]],
+                prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in settings["prefixes"]],
                 reactions = [],
                 messages = [],
             )
@@ -1461,4 +1461,4 @@ async def speed(ctx, period="24.0"):
 
 # Run bot
 if (__name__ == "__main__"):
-    bot.run(data["token"])
+    bot.run(settings["token"])
