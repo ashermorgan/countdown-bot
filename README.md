@@ -28,7 +28,7 @@ A Discord bot to facilitate countdowns.
 
 6. Run the bot
     ```
-    python bot.py
+    python run.py
     ```
 
 7. Run `c.help` to get a list of commands and a description of the bot's behavior.
