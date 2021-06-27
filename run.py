@@ -9,7 +9,7 @@ from src import CountdownBot
 
 # Load settings
 settings = {}
-with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "settings.json"), "a+") as f:
+with open(os.path.join(os.path.dirname(__file__), "settings.json"), "a+") as f:
     f.seek(0)
     settings = json.load(f)
 
