@@ -294,14 +294,16 @@ class Analytics(commands.Cog):
                 else:
                     # Get user from username
                     for contributor in leaderboard:
-                        username = await getUsername(self.bot, contributor["author"])
+                        try: username = await getUsername(self.bot, contributor["author"])
+                        except: pass
                         if (username.lower().startswith(user.lower())):
                             rank = leaderboard.index(contributor)
 
                     if (rank == None):
                         # Get user from nickname
                         for contributor in leaderboard:
-                            nickname = await getNickname(self.bot, countdown.server_id, contributor["author"])
+                            try: nickname = await getNickname(self.bot, countdown.server_id, contributor["author"])
+                            except: pass
                             if (nickname.lower().startswith(user.lower())):
                                 rank = leaderboard.index(contributor)
 
