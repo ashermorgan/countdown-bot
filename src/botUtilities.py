@@ -3,7 +3,6 @@ import discord
 import re
 
 # Import modules
-from src import Session, settings
 from src.models import Countdown, Message, MessageIncorrectError, MessageNotAllowedError
 
 
@@ -56,7 +55,7 @@ async def getNickname(bot, server, id):
         The nickname
     """
 
-    return (await (bot.get_guild(server)).fetch_member(id)).nick or await getUsername(id)
+    return (await (bot.get_guild(server)).fetch_member(id)).nick or await getUsername(bot, id)
 
 
 
@@ -100,8 +99,6 @@ def getContextCountdown(session, ctx, resortToFirst=True):
         The countdown
     """
 
-    global settings
-
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
         # Countdown channel
         countdown = getCountdown(session, ctx.channel.guild.id)
@@ -118,21 +115,22 @@ def getContextCountdown(session, ctx, resortToFirst=True):
 
 
 
-def getPrefix(bot, ctx):
+def getPrefix(databaseSessionMaker, ctx, default):
     """
     Get the bot prefix for a certain context.
 
     Parameters
     ----------
-    bot : commands.Bot
-        The bot
+    databaseSessionMaker : sqlalchemy.orm.sessionmaker
+        The database session maker
     ctx : discord.ext.commands.Context
         The context
+    default : list
+        The default prefixes
     """
 
-    with Session() as session:
+    with databaseSessionMaker() as session:
         # Countdown channel
-        global settings
         countdown = getCountdown(session, ctx.channel.id)
         if (countdown and len(countdown.prefixes) > 0):
             return [x.value for x in countdown.prefixes]
@@ -148,7 +146,7 @@ def getPrefix(bot, ctx):
                 return list(dict.fromkeys(prefixes))
 
         # Return default prefixes
-        return settings["prefixes"]
+        return default
 
 
 

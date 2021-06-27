@@ -9,15 +9,15 @@ import re
 import tempfile
 
 # Import modules
-from src import Session
 from src.botUtilities import COLORS, getContextCountdown, getNickname, getUsername
 from src.models import POINT_RULES
 
 
 
 class Analytics(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, databaseSessionMaker):
         self.bot = bot
+        self.databaseSessionMaker = databaseSessionMaker
 
 
 
@@ -27,7 +27,7 @@ class Analytics(commands.Cog):
         Shows all countdown analytics
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
 
@@ -54,7 +54,7 @@ class Analytics(commands.Cog):
         Shows information about countdown contributors
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
 
@@ -160,7 +160,7 @@ class Analytics(commands.Cog):
         Shows information about the estimated completion date
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
 
@@ -244,7 +244,7 @@ class Analytics(commands.Cog):
         Shows the countdown leaderboard
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
 
@@ -301,7 +301,7 @@ class Analytics(commands.Cog):
                     if (rank == None):
                         # Get user from nickname
                         for contributor in leaderboard:
-                            nickname = await getNickname(countdown.server_id, contributor["author"])
+                            nickname = await getNickname(self.bot, countdown.server_id, contributor["author"])
                             if (nickname.lower().startswith(user.lower())):
                                 rank = leaderboard.index(contributor)
 
@@ -345,7 +345,7 @@ class Analytics(commands.Cog):
         Shows information about countdown progress
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
 
@@ -416,7 +416,7 @@ class Analytics(commands.Cog):
         Shows information about countdown speed
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
 

@@ -1,9 +1,29 @@
 # Import dependencies
 from datetime import datetime, timedelta
 import math
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+
+
+
+Base = declarative_base()
+
+
+
+def getSessionMaker(location):
+    """
+    Create a sessionmaker from a database URI
+
+    Parameters
+    ----------
+    location : str
+        The location of the database
+    """
+
+    engine = create_engine(location)
+    Base.metadata.create_all(bind=engine)
+    return sessionmaker(bind=engine)
 
 
 
@@ -31,11 +51,6 @@ class MessageNotAllowedError(Exception):
 class MessageIncorrectError(Exception):
     """Raised when someone posts an incorrect number."""
     pass
-
-
-
-# Initialize declarative base
-Base = declarative_base()
 
 
 

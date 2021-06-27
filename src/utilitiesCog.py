@@ -3,15 +3,15 @@ import discord
 from discord.ext import commands
 
 # Import modules
-from src import Session, settings
 from src.botUtilities import COLORS, getContextCountdown, getCountdown, loadCountdown
 from src.models import Countdown, Prefix, Reaction
 
 
 
 class Utilities(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, databaseSessionMaker):
         self.bot = bot
+        self.databaseSessionMaker = databaseSessionMaker
         self.bot.remove_command("help")
 
 
@@ -22,7 +22,7 @@ class Utilities(commands.Cog):
         Turns a channel into a countdown
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Channel is already a coutndown
             if (getCountdown(session, ctx.channel.id)):
                 embed = discord.Embed(title="Error", description="This channel is already a countdown", color=COLORS["error"])
@@ -45,7 +45,7 @@ class Utilities(commands.Cog):
                     id = ctx.channel.id,
                     server_id = ctx.channel.guild.id,
                     timezone = 0,
-                    prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in settings["prefixes"]],
+                    prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in self.bot.prefixes],
                     reactions = [],
                     messages = [],
                 )
@@ -76,7 +76,7 @@ class Utilities(commands.Cog):
         # Create embed
         embed = discord.Embed(title=":gear: Countdown Settings", color=COLORS["embed"])
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Get countdown channel
             try:
                 countdown = getContextCountdown(session, ctx, resortToFirst=False)
@@ -152,7 +152,7 @@ class Utilities(commands.Cog):
         Deactivates a countdown channel
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             # Channel isn't a countdown
             countdown = getCountdown(session, ctx.channel.id)
             if (not countdown):
@@ -363,7 +363,7 @@ class Utilities(commands.Cog):
         Reloads the countdown cache
         """
 
-        with Session() as session:
+        with self.databaseSessionMaker() as session:
             countdown = getCountdown(session, ctx.channel.id)
             if (countdown):
                 # Send inital responce
