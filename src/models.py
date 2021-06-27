@@ -107,6 +107,26 @@ class Countdown(Base):
         else:
             self.messages += [message]
 
+    def getTimezone(self):
+        """
+        Get the timezone as a string
+
+        Returns
+        -------
+        str
+            The timezone string
+        """
+
+        # Get tiemzone
+        if (self.timezone >= 0): result = f"UTC+{self.timezone}"
+        else: result = f"UTC-{abs(self.timezone)}"
+
+        # Remove ".0" from the end
+        if (self.timezone % 1 == 0): result = result[:-2]
+        
+        # Return timezone string
+        return result
+
     def contributors(self):
         """
         Get countdown contributor statistics.

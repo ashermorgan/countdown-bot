@@ -61,7 +61,6 @@ class Utilities(commands.Cog):
                 session.commit()
 
                 # Send final responce
-                print(f"Loaded messages from {self.bot.get_channel(ctx.channel.id)}")
                 embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
                 await msg.edit(embed=embed)
 
@@ -88,10 +87,7 @@ class Utilities(commands.Cog):
                 if (key is None):
                     embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
                     embed.description += f"**Command Prefixes:** `{'`, `'.join([x.value for x in countdown.prefixes])}`\n"
-                    if (countdown.timezone < 0):
-                        embed.description += f"**Countdown Timezone:** UTC-{-1 * countdown.timezone}\n"
-                    else:
-                        embed.description += f"**Countdown Timezone:** UTC+{countdown.timezone}\n"
+                    embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
                     if (len(countdown.reactions) == 0):
                         embed.description += f"**Reactions:** none\n"
                     else:
@@ -105,18 +101,16 @@ class Utilities(commands.Cog):
                     embed.color = COLORS["error"]
                     embed.description = f"Please provide a value for the setting"
                 elif (key in ["tz", "timezone"]):
-                    embed.description = f"Done"
                     try:
-                        countdown.timezone = int(args[0])
+                        countdown.timezone = float(args[0])
                     except:
-                        try:
-                            countdown.timezone = float(args[0])
-                        except:
-                            embed.color = COLORS["error"]
-                            embed.description = f"Invalid timezone: {args[0]}"
+                        embed.color = COLORS["error"]
+                        embed.description = f"Invalid timezone: {args[0]}"
+                    else:
+                        embed.description = f"Timezone set to {countdown.getTimezone()}"
                 elif (key in ["prefix", "prefixes"]):
                     countdown.prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in args]
-                    embed.description = f"Done"
+                    embed.description = f"Prefixes updated"
                 elif (key in ["react"]):
                     try:
                         number = int(args[0])
@@ -367,7 +361,6 @@ class Utilities(commands.Cog):
             countdown = getCountdown(session, ctx.channel.id)
             if (countdown):
                 # Send inital responce
-                print(f"Reloading messages from {self.bot.get_channel(ctx.channel.id)}")
                 embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting.", color=COLORS["embed"])
                 msg = await ctx.channel.send(embed=embed)
 
