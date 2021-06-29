@@ -123,7 +123,7 @@ class Countdown(Base):
 
         # Remove ".0" from the end
         if (self.timezone % 1 == 0): result = result[:-2]
-        
+
         # Return timezone string
         return result
 
@@ -207,6 +207,43 @@ class Countdown(Base):
 
         # Return eta data
         return data
+
+    def heatmap(self, user=None):
+        """
+        Get a heatmap of when countdown messages are sent
+
+        Parameters
+        ----------
+        user : int
+            The ID of the specific user to generate the heatmap for (the default is None)
+
+        Returns
+        -------
+        list
+            A 7x24 2D array containing the heatmap
+        """
+
+        # Initialize result matrix
+        result = [[0 for i in range(24)] for j in range(7)]
+
+        for message in self.messages:
+            if (user != None and message.author_id != user): continue
+
+            # Apply timezone offset
+            timestamp = message.timestamp + timedelta(hours=self.timezone)
+
+            # Get time and weekday
+            dayOfWeek = timestamp.weekday()  # 0-6, 0=Monday
+            timeOfDay = timestamp.hour  # 0-23
+
+            # Make Sunday the first day of the week
+            dayOfWeek = (dayOfWeek + 1) % 7
+
+            # Add data to result matrix
+            result[dayOfWeek][timeOfDay] += 1
+
+        # Return result matrix
+        return result
 
     def leaderboard(self):
         """
@@ -376,7 +413,7 @@ class Prefix(Base):
     value : string
         The command prefix
     """
-    
+
     __tablename__ = "prefix"
 
     id = Column(Integer, primary_key=True)
@@ -403,7 +440,7 @@ class Reaction(Base):
     value : string
         The reaction
     """
-    
+
     __tablename__ = "reaction"
 
     id = Column(Integer, primary_key=True)

@@ -4,12 +4,13 @@ import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
 from matplotlib.ticker import PercentFormatter
+import numpy as np
 import os
 import re
 import tempfile
 
 # Import modules
-from src.botUtilities import COLORS, getContextCountdown, getNickname, getUsername
+from src.botUtilities import COLORS, getContextCountdown, getUsername, getContributor, ContributorNotFound
 from src.models import POINT_RULES
 
 
@@ -42,6 +43,7 @@ class Analytics(commands.Cog):
                 await self.contributors(ctx, "")
                 await self.contributors(ctx, "history")
                 if (len(countdown.messages) >= 2): await self.eta(ctx)  # Countdown must have 2 messages to run eta command
+                await self.heatmap(ctx)
                 await self.leaderboard(ctx)
                 await self.progress(ctx)
                 await self.speed(ctx)
@@ -238,6 +240,75 @@ class Analytics(commands.Cog):
 
 
 
+    @commands.command()
+    async def heatmap(self, ctx, user=None):
+        """
+        Shows a heatmap of when countdown messages are sent
+        """
+
+        with self.databaseSessionMaker() as session:
+            # Get countdown channel
+            countdown = getContextCountdown(session, ctx)
+
+            # Create temp file
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            tmp.close()
+
+            # Create embed
+            embed=discord.Embed(title=":calendar_spiral: Countdown Heatmap", color=COLORS["embed"])
+
+            # Get user
+            try:
+                if (user == None): userID = None
+                else: userID = await getContributor(self.bot, countdown, user)
+            except ContributorNotFound:
+                embed.color = COLORS["error"]
+                embed.description = f"Contributor not found: `{user}`"
+                await ctx.send(embed=embed)
+                return
+
+            # Get heatmap matrix
+            heatmapMatrix = np.ma.masked_equal(np.array(countdown.heatmap(userID)), 0)
+
+            # Create figure
+            fig, ax = plt.subplots()
+            ax.set_xlabel("Hour of Day")
+            ax.set_xticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
+            ax.set_xticklabels(["12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM", "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM"])
+            ax.set_ylabel("Day of Week")
+            ax.set_yticks([0, 1, 2, 3, 4, 5, 6])
+            ax.set_yticklabels(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])
+
+            # Add data to graph
+            cmap = plt.get_cmap("jet").copy()
+            cmap.set_bad("gray")
+            cax = ax.matshow(heatmapMatrix, cmap=cmap, aspect="auto")
+            fig.colorbar(cax)
+
+            # Save graph
+            fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
+            file = discord.File(tmp.name, filename="image.png")
+
+            # Add content to embed
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
+            if (userID): embed.description += f"**User:** <@{userID}>\n"
+            embed.description += f"**Total Contributions:** {np.sum(heatmapMatrix):,}\n"
+            embed.set_image(url="attachment://image.png")
+
+        # Send embed
+        try:
+            await ctx.send(file=file, embed=embed)
+        except:
+            await ctx.send(embed=embed)
+
+        # Remove temp file
+        try:
+            os.remove(tmp.name)
+        except:
+            print(f"Unable to delete temp file: {tmp.name}.")
+
+
+
     @commands.command(aliases=["l"])
     async def leaderboard(self, ctx, user=None):
         """
@@ -284,35 +355,16 @@ class Analytics(commands.Cog):
                 embed.add_field(name="Numbers", value=rules, inline=True)
                 embed.add_field(name="Points", value=values, inline=True)
             else:
-                rank = None
-                if (re.match("^\d+$", user) and int(user) > 0 and int(user) <= len(leaderboard)):
-                    # Get user from rank
-                    rank = int(user) - 1
-                elif (re.match("^<@!\d+>$", user) and int(user[3:-1]) in [x["author"] for x in leaderboard]):
-                    # Get user from mention
-                    rank = [x["author"] for x in leaderboard].index(int(user[3:-1]))
-                else:
-                    # Get user from username
-                    for contributor in leaderboard:
-                        try: username = await getUsername(self.bot, contributor["author"])
-                        except: pass
-                        if (username.lower().startswith(user.lower())):
-                            rank = leaderboard.index(contributor)
-
-                    if (rank == None):
-                        # Get user from nickname
-                        for contributor in leaderboard:
-                            try: nickname = await getNickname(self.bot, countdown.server_id, contributor["author"])
-                            except: pass
-                            if (nickname.lower().startswith(user.lower())):
-                                rank = leaderboard.index(contributor)
-
-                        if (rank == None):
-                            # User not found
-                            embed.color = COLORS["error"]
-                            embed.description = f"User not found: `{user}`"
-                            await ctx.send(embed=embed)
-                            return
+                try:
+                    if (re.match("^\d+$", user) and int(user) > 0 and int(user) <= len(leaderboard)):
+                        rank = int(user) - 1
+                    else:
+                        rank = [x["author"] for x in leaderboard].index(await getContributor(self.bot, countdown, user))
+                except ContributorNotFound:
+                    embed.color = COLORS["error"]
+                    embed.description = f"Contributor not found: `{user}`"
+                    await ctx.send(embed=embed)
+                    return
 
                 # Add description
                 embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"

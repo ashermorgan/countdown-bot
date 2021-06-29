@@ -14,6 +14,13 @@ COLORS = {
 
 
 
+# Error classes
+class ContributorNotFound(Exception):
+    """Raised when a matching countdown contributor cannot be found"""
+    pass
+
+
+
 async def getUsername(bot, id):
     """
     Get a username from a user ID.
@@ -56,6 +63,53 @@ async def getNickname(bot, server, id):
     """
 
     return (await (bot.get_guild(server)).fetch_member(id)).nick or await getUsername(bot, id)
+
+
+
+async def getContributor(bot, countdown, text):
+    """
+    Get the ID of the countdown contributor refered to by a string
+
+    Parameters
+    ----------
+    bot : commands.Bot
+        The bot
+    countdown : Countdown
+        The countdown
+    text : str
+        The string
+
+    Returns
+    -------
+    int
+        The ID of the contributor
+
+    Raises
+    ------
+    ContributorNotFound
+        If a matching contributor cannot be found
+    """
+
+    # Get countdown contributors
+    contributors = [x["author"] for x in countdown.contributors()]
+
+    # Get user from mention
+    if (re.match("^<@!\d+>$", text) and int(text[3:-1]) in contributors): return int(text[3:-1])
+    elif (re.match("^<@!\d+>$", text)): raise ContributorNotFound(text)
+
+    # Get user from username
+    for contributor in contributors:
+        try: username = await getUsername(bot, contributor)
+        except: continue
+        if (username.lower().startswith(text.lower())): return contributor
+
+    # Get user from nickname
+    for contributor in contributors:
+        try: nickname = await getNickname(bot, countdown.server_id, contributor)
+        except: continue
+        if (nickname.lower().startswith(text.lower())): return contributor
+
+    raise ContributorNotFound(text)
 
 
 

@@ -50,7 +50,7 @@ class Utilities(commands.Cog):
                     messages = [],
                 )
 
-                # Send initial responce
+                # Send initial response
                 print(f"Activated {self.bot.get_channel(ctx.channel.id)} as a countdown")
                 embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
                 msg = await ctx.send(embed=embed)
@@ -60,7 +60,7 @@ class Utilities(commands.Cog):
                 session.add(countdown)
                 session.commit()
 
-                # Send final responce
+                # Send final response
                 embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
                 await msg.edit(embed=embed)
 
@@ -164,7 +164,7 @@ class Utilities(commands.Cog):
                 session.delete(countdown)
                 session.commit()
 
-                # Send responce
+                # Send response
                 print(f"Deactivated {self.bot.get_channel(ctx.channel.id)} as a countdown")
                 embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown", color=COLORS["embed"])
                 await ctx.send(embed=embed)
@@ -193,6 +193,7 @@ class Utilities(commands.Cog):
                 "**-** `analytics`, `a`: Shows all countdown analytics\n" \
                 "**-** `contributors`, `c`: Shows information about countdown contributors\n" \
                 "**-** `eta`, `e`: Shows information about the estimated completion date\n" \
+                "**-** `heatmap`: Shows a heatmap of when messages are sent\n" \
                 "**-** `leaderboard`, `l`: Shows the countdown leaderboard\n" \
                 "**-** `progress`, `p`: Shows information about countdown progress\n" \
                 "**-** `speed`, `s`: Shows information about countdown speed\n",
@@ -250,6 +251,14 @@ class Utilities(commands.Cog):
                 "**Arguments:**\n" \
                 "**-** `<period>`: The size of the period in hours. The default is 24 hours.\n" \
                 "**Notes:** none\n",
+            "heatmap":
+                "**Name:** heatmap\n" \
+                "**Description:** Shows a heatmap of when countdown messages are sent\n" \
+                f"**Usage:** `{prefixes[0]}heatmap [<user>]`\n" \
+                "**Aliases:** none\n" \
+                "**Arguments:**\n" \
+                "**-** `<user>`: The username or nickname of the user to view heatmap information about. If no value is supplied, the general heatmap will be shown.\n" \
+                "**Notes:** none\n",
             "help":
                 "**Name:** help\n" \
                 "**Description:** Shows help information\n" \
@@ -264,7 +273,7 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}leaderboard|l [<user>]`\n" \
                 "**Aliases:** `l`\n" \
                 "**Arguments:**\n" \
-                "**-** `<user>`: The rank, username, or nickname of the user to viewleaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n" \
+                "**-** `<user>`: The rank, username, or nickname of the user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n" \
                 "**Notes:** The leaderboard embed will only show the top 20 contributors\n",
             "ping":
                 "**Name:** ping\n" \
@@ -317,6 +326,8 @@ class Utilities(commands.Cog):
             embed.description = help_text["deactivate"]
         elif (command.lower() in ["e", "eta"]):
             embed.description = help_text["eta"]
+        elif (command.lower() in ["heatmap"]):
+            embed.description = help_text["heatmap"]
         elif (command.lower() in ["h", "help"]):
             embed.description = help_text["help"]
         elif (command.lower() in ["l", "leaderboard"]):
@@ -360,7 +371,7 @@ class Utilities(commands.Cog):
         with self.databaseSessionMaker() as session:
             countdown = getCountdown(session, ctx.channel.id)
             if (countdown):
-                # Send inital responce
+                # Send initial response
                 embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting.", color=COLORS["embed"])
                 msg = await ctx.channel.send(embed=embed)
 
@@ -368,7 +379,7 @@ class Utilities(commands.Cog):
                 await loadCountdown(self.bot, countdown)
                 session.commit()
 
-                # Send final responce
+                # Send final response
                 print(f"Reloaded messages from {self.bot.get_channel(ctx.channel.id)}")
                 embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!", color=COLORS["embed"])
                 await msg.edit(embed=embed)
