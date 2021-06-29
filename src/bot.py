@@ -56,7 +56,7 @@ class CountdownBot(commands.Bot):
         # Parse countdown message
         with self.databaseSessionMaker() as session:
             countdown = getCountdown(session, obj.channel.id)
-            if (countdown and obj.author.name != "countdown-bot"):
+            if (countdown):
                 # Add message to countdown and commit changes
                 if (await addMessage(countdown, obj)): session.commit()
 
