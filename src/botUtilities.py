@@ -101,7 +101,7 @@ def getContextCountdown(session, ctx, resortToFirst=True):
 
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
         # Countdown channel
-        countdown = getCountdown(session, ctx.channel.guild.id)
+        countdown = getCountdown(session, ctx.channel.id)
         if (countdown): return countdown
 
         # Server with countdown channel: get first countdown in this server that use the current prefix
