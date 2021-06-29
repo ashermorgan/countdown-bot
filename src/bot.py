@@ -30,6 +30,23 @@ class CountdownBot(commands.Bot):
 
 
 
+    async def on_guild_join(self, guild):
+        # Print status
+        print(f"Added to {guild}")
+
+        # Create embed
+        embed=discord.Embed(title=":rocket: Getting Started with countdown-bot", color=COLORS["embed"])
+        embed.description = f"Thanks for adding me to your server! Here are some steps for getting started:\n"
+        embed.description += f"**1.** View help information using the `{self.prefixes[0]}help` command\n"
+        embed.description += f"**2.** Activate a new countdown channel using the `{self.prefixes[0]}activate` command\n"
+        embed.description += f"**3.** Change my settings using the `{self.prefixes[0]}config` command\n"
+        embed.description += f"**4.** View countdown analytics using the `{self.prefixes[0]}analytics` command\n"
+
+        # Send embed
+        await guild.system_channel.send(embed=embed)
+
+
+
     async def on_message(self, obj):
         # Respond to @mentions
         if self.user in obj.mentions:

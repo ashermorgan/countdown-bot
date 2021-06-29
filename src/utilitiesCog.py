@@ -23,7 +23,7 @@ class Utilities(commands.Cog):
         """
 
         with self.databaseSessionMaker() as session:
-            # Channel is already a coutndown
+            # Channel is already a countdown
             if (getCountdown(session, ctx.channel.id)):
                 embed = discord.Embed(title="Error", description="This channel is already a countdown", color=COLORS["error"])
                 await ctx.send(embed=embed)
@@ -200,7 +200,17 @@ class Utilities(commands.Cog):
             "behavior":
                 "**-** Reacts with :no_entry: when a user counts out of turn\n" \
                 "**-** Reacts with :x: when a user counts incorrectly\n" \
+                "**-** Ignores messages that don't start with a (positive) number\n" \
                 "**-** Pins numbers every 2% if the countdown started at 500 or higher\n",
+            "getting-started":
+                f"**1.** View help information using the `{prefixes[0]}help` command\n" \
+                f"**2.** Activate a new countdown channel using the `{prefixes[0]}activate` command\n" \
+                f"**3.** Change my settings using the `{prefixes[0]}config` command\n" \
+                f"**4.** View countdown analytics using the `{prefixes[0]}analytics` command\n",
+            "troubleshooting":
+                f"**1.** Run `{prefixes[0]}ping` to make sure that I'm online\n" \
+                f"**2.** If I reacted incorrectly to a message, remove my incorrect reaction(s)\n" \
+                f"**3.** Run `{prefixes[0]}reload` in the countdown channel\n",
             "activate":
                 "**Name:** activate\n" \
                 "**Description:** Turns a channel into a countdown\n" \
@@ -313,6 +323,8 @@ class Utilities(commands.Cog):
             embed.add_field(name="Utility Commands :wrench:", value=help_text["utility-commands"], inline=False)
             embed.add_field(name="Analytics Commands :bar_chart:", value=help_text["analytics-commands"], inline=False)
             embed.add_field(name="Behavior in Countdown Channels :robot:", value=help_text["behavior"], inline=False)
+            embed.add_field(name="Getting Started :rocket:", value=help_text["getting-started"], inline=False)
+            embed.add_field(name="Troubleshooting :screwdriver:", value=help_text["troubleshooting"], inline=False)
             embed.description = f"Use `{prefixes[0]}help command` to get more info on a command"
         elif (command.lower() in ["activate"]):
             embed.description = help_text["activate"]
