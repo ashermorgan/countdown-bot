@@ -75,62 +75,65 @@ class Utilities(commands.Cog):
         # Create embed
         embed = discord.Embed(title=":gear: Countdown Settings", color=COLORS["embed"])
 
+        # Make sure context is in a server
+        if (not isinstance(ctx.channel, discord.channel.TextChannel)):
+            embed.color = COLORS["error"]
+            embed.description = "This command must be run in a countdown channel or a server with a countdown channel"
+            await ctx.send(embed=embed)
+            return
+
         with self.databaseSessionMaker() as session:
             # Get countdown channel
-            try:
-                countdown = getContextCountdown(session, ctx, resortToFirst=False)
-            except:
-                embed.color = COLORS["error"]
-                embed.description = "This command must be run in a countdown channel or a server with a countdown channel"
-            else:
-                # Get / set settings
-                if (key is None):
-                    embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
-                    embed.description += f"**Command Prefixes:** `{'`, `'.join([x.value for x in countdown.prefixes])}`\n"
-                    embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
-                    if (len(countdown.reactions) == 0):
-                        embed.description += f"**Reactions:** none\n"
-                    else:
-                        embed.description += f"**Reactions:**\n"
-                    for number in list(dict.fromkeys([x.number for x in countdown.reactions])):
-                        embed.description += f"**-** #{number}: {', '.join([x.value for x in countdown.reactions if x.number == number])}\n"
-                elif (not ctx.message.author.guild_permissions.administrator):
-                    embed.color = COLORS["error"]
-                    embed.description = f"You must be an administrator to modify settings"
-                elif (len(args) == 0):
-                    embed.color = COLORS["error"]
-                    embed.description = f"Please provide a value for the setting"
-                elif (key in ["tz", "timezone"]):
-                    try:
-                        countdown.timezone = float(args[0])
-                    except:
-                        embed.color = COLORS["error"]
-                        embed.description = f"Invalid timezone: {args[0]}"
-                    else:
-                        embed.description = f"Timezone set to {countdown.getTimezone()}"
-                elif (key in ["prefix", "prefixes"]):
-                    countdown.prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in args]
-                    embed.description = f"Prefixes updated"
-                elif (key in ["react"]):
-                    try:
-                        number = int(args[0])
-                        if (number < 0):
-                            embed.color = COLORS["error"]
-                            embed.description = f"Number must be greater than zero"
-                        elif (len(args) == 1):
-                            countdown.reactions = [x for x in countdown.reactions if x.number != number]
-                            embed.description = f"Removed reactions for #{number}"
-                        else:
-                            countdown.reactions = [x for x in countdown.reactions if x.number != number]
-                            countdown.reactions += [Reaction(countdown_id=countdown.id, number=number, value=x) for x in args[1:]]
-                            embed.description = f"Updated reactions for #{number}"
-                    except:
-                        embed.color = COLORS["error"]
-                        embed.description = f"Invalid number: {args[0]}"
+            countdown = getContextCountdown(session, ctx)
+
+            # Get / set settings
+            if (key is None):
+                embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
+                embed.description += f"**Command Prefixes:** `{'`, `'.join([x.value for x in countdown.prefixes])}`\n"
+                embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
+                if (len(countdown.reactions) == 0):
+                    embed.description += f"**Reactions:** none\n"
                 else:
+                    embed.description += f"**Reactions:**\n"
+                for number in list(dict.fromkeys([x.number for x in countdown.reactions])):
+                    embed.description += f"**-** #{number}: {', '.join([x.value for x in countdown.reactions if x.number == number])}\n"
+            elif (not ctx.message.author.guild_permissions.administrator):
+                embed.color = COLORS["error"]
+                embed.description = f"You must be an administrator to modify settings"
+            elif (len(args) == 0):
+                embed.color = COLORS["error"]
+                embed.description = f"Please provide a value for the setting"
+            elif (key in ["tz", "timezone"]):
+                try:
+                    countdown.timezone = float(args[0])
+                except:
                     embed.color = COLORS["error"]
-                    embed.description = f"Setting not found: `{key}`\n"
-                    embed.description += f"Use `{(await self.bot.get_prefix(ctx))[0]}help config` to view the list of settings"
+                    embed.description = f"Invalid timezone: {args[0]}"
+                else:
+                    embed.description = f"Timezone set to {countdown.getTimezone()}"
+            elif (key in ["prefix", "prefixes"]):
+                countdown.prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in args]
+                embed.description = f"Prefixes updated"
+            elif (key in ["react"]):
+                try:
+                    number = int(args[0])
+                    if (number < 0):
+                        embed.color = COLORS["error"]
+                        embed.description = f"Number must be greater than zero"
+                    elif (len(args) == 1):
+                        countdown.reactions = [x for x in countdown.reactions if x.number != number]
+                        embed.description = f"Removed reactions for #{number}"
+                    else:
+                        countdown.reactions = [x for x in countdown.reactions if x.number != number]
+                        countdown.reactions += [Reaction(countdown_id=countdown.id, number=number, value=x) for x in args[1:]]
+                        embed.description = f"Updated reactions for #{number}"
+                except:
+                    embed.color = COLORS["error"]
+                    embed.description = f"Invalid number: {args[0]}"
+            else:
+                embed.color = COLORS["error"]
+                embed.description = f"Setting not found: `{key}`\n"
+                embed.description += f"Use `{(await self.bot.get_prefix(ctx))[0]}help config` to view the list of settings"
 
             # Save changes
             session.commit()

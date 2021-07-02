@@ -134,7 +134,7 @@ def getCountdown(session, id):
 
 
 
-def getContextCountdown(session, ctx, resortToFirst=True):
+def getContextCountdown(session, ctx):
     """
     Get the most relevant countdown to a certain context.
 
@@ -144,8 +144,6 @@ def getContextCountdown(session, ctx, resortToFirst=True):
         The database session to use
     ctx : discord.ext.commands.Context
         The context
-    resortToFirst : bool
-        Whether to return the 1st countdown if no relevant countdowns are found
 
     Returns
     -------
@@ -162,10 +160,12 @@ def getContextCountdown(session, ctx, resortToFirst=True):
         countdown = session.query(Countdown).filter(Countdown.server_id == ctx.channel.guild.id and ctx.prefix in [x.value for x in Countdown.prefixes]).first()
         if (countdown): return countdown
 
-    # First countdown channel
-    countdown = session.query(Countdown).first()
-    if (resortToFirst and countdown): return countdown
-    else: raise Exception("Countdown channel not found")
+    if (isinstance(ctx.channel, discord.channel.DMChannel)):
+        # DM with user who has contributed to a countdown: get the first countdown they ever contributed to
+        firstMessage = session.query(Message).filter(Message.author_id == ctx.author.id).order_by(Message.timestamp).first()
+        if (firstMessage): return firstMessage.countdown
+
+    raise Exception("Countdown channel not found")
 
 
 
