@@ -136,7 +136,7 @@ class Analytics(commands.Cog):
         try:
             os.remove(tmp.name)
         except:
-            print(f"Unable to delete temp file: {tmp.name}.")
+            print(f"Unable to delete temp file: {tmp.name}")
 
 
 
@@ -216,7 +216,7 @@ class Analytics(commands.Cog):
         try:
             os.remove(tmp.name)
         except:
-            print(f"Unable to delete temp file: {tmp.name}.")
+            print(f"Unable to delete temp file: {tmp.name}")
 
 
 
@@ -281,7 +281,7 @@ class Analytics(commands.Cog):
         try:
             os.remove(tmp.name)
         except:
-            print(f"Unable to delete temp file: {tmp.name}.")
+            print(f"Unable to delete temp file: {tmp.name}")
 
 
 
@@ -423,7 +423,7 @@ class Analytics(commands.Cog):
         try:
             os.remove(tmp.name)
         except:
-            print(f"Unable to delete temp file: {tmp.name}.")
+            print(f"Unable to delete temp file: {tmp.name}")
 
 
 
@@ -496,4 +496,4 @@ class Analytics(commands.Cog):
         try:
             os.remove(tmp.name)
         except:
-            print(f"Unable to delete temp file: {tmp.name}.")
+            print(f"Unable to delete temp file: {tmp.name}")

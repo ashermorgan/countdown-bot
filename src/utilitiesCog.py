@@ -47,7 +47,7 @@ class Utilities(commands.Cog):
 
             # Send initial response
             print(f"Activated {self.bot.get_channel(ctx.channel.id)} as a countdown")
-            embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
+            embed = discord.Embed(title=":clock3: Loading Countdown", description="This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
             msg = await ctx.send(embed=embed)
 
             # Load countdown
@@ -56,7 +56,7 @@ class Utilities(commands.Cog):
             session.commit()
 
             # Send final response
-            embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
+            embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
             await msg.edit(embed=embed)
 
 
@@ -89,6 +89,8 @@ class Utilities(commands.Cog):
                     embed.description += f"**Reactions:**\n"
                 for number in list(dict.fromkeys([x.number for x in countdown.reactions])):
                     embed.description += f"**-** #{number}: {', '.join([x.value for x in countdown.reactions if x.number == number])}\n"
+                embed.description += f"\nUse `{ctx.prefix}help config` to view more information about settings\n"
+                embed.description += f"Use `{ctx.prefix}config <key> <value>` to modify settings\n"
             elif (not ctx.message.author.guild_permissions.administrator):
                 raise CommandError("You must be an administrator to modify settings")
             elif (len(args) == 0):
@@ -150,7 +152,7 @@ class Utilities(commands.Cog):
 
             # Send response
             print(f"Deactivated {self.bot.get_channel(ctx.channel.id)} as a countdown")
-            embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown", color=COLORS["embed"])
+            embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="This channel is no longer a countdown", color=COLORS["embed"])
             await ctx.send(embed=embed)
 
 
@@ -201,13 +203,17 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}activate`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:** none\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}activate`\n" \
                 "**Notes:** Users must have admin permissions to turn a channel into a countdown\n",
             "analytics":
                 "**Name:** analytics\n" \
                 "**Description:** Shows all countdown analytics\n" \
                 f"**Usage:** `{prefixes[0]}analytics|a`\n" \
                 "**Aliases:** `a`\n" \
-                "**Arguments:**\n" \
+                "**Arguments: none**\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}analytics`\n" \
                 "**Notes:** none\n",
             "config":
                 "**Name:** config\n" \
@@ -215,12 +221,17 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}config [<key> <value>...]`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:**\n" \
-                "**-** `<key>`: The name of the setting to modify (see below).\n" \
-                "**-** `<value>`: The new value(s) for the setting. If no key-value pair is supplied, all settings will be shown.\n" \
+                "**-** `<key>`: The name of the setting to modify. If no key is supplied, all settings will be shown\n" \
+                "**-** `<value>`: The new value(s) for the setting\n" \
                 "**Available Settings:**\n" \
-                "**-** `prefix`, `prefixes`: The prefix(es) for the self.bot.\n" \
-                "**-** `tz`, `timezone`: The UTC offset, in hours.\n" \
-                "**-** `react`: The reactions for a certain number. Ex: `react 0 :partying_face: :smile:`\n" \
+                "**-** `prefix`, `prefixes`: The prefix(es) for the bot\n" \
+                "**-** `tz`, `timezone`: The UTC offset in hours\n" \
+                "**-** `react`: The reactions for a certain number\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}config`\n" \
+                f"**-** `{prefixes[0]}config prefixes prefix1 prefix2 prefix3`\n" \
+                f"**-** `{prefixes[0]}config timezone -1.5`\n" \
+                f"**-** `{prefixes[0]}config react 0 :partying_face: :smile:`\n" \
                 "**Notes:** Users must have admin permissions to modify settings\n",
             "contributors":
                 "**Name:** contributors\n" \
@@ -229,6 +240,9 @@ class Utilities(commands.Cog):
                 "**Aliases:** `c`\n" \
                 "**Arguments:**\n" \
                 "**-** `history`, `h`: Shows historical data about countdown contributors\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}contributors`\n" \
+                f"**-** `{prefixes[0]}contributors history`\n" \
                 "**Notes:** The contributors embed will only show the top 20 contributors\n",
             "deactivate":
                 "**Name:** deactivate\n" \
@@ -236,6 +250,8 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}deactivate`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:** none\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}deactivate`\n" \
                 "**Notes:** Users must have admin permissions to deactivate a countdown channel\n",
             "eta":
                 "**Name:** eta\n" \
@@ -243,7 +259,10 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}eta|e [<period>]`\n" \
                 "**Aliases:** `e`\n" \
                 "**Arguments:**\n" \
-                "**-** `<period>`: The size of the period in hours. The default is 24 hours.\n" \
+                "**-** `<period>`: The size of the period in hours (the default is 24 hours)\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}eta`\n" \
+                f"**-** `{prefixes[0]}eta 48`\n" \
                 "**Notes:** none\n",
             "heatmap":
                 "**Name:** heatmap\n" \
@@ -251,7 +270,11 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}heatmap [<user>]`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:**\n" \
-                "**-** `<user>`: The username or nickname of the user to view heatmap information about. If no value is supplied, the general heatmap will be shown.\n" \
+                "**-** `<user>`: The username or nickname of the user to view heatmap information about. If no value is supplied, the general heatmap will be shown\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}heatmap`\n" \
+                f"**-** `{prefixes[0]}heatmap @Alice`\n" \
+                f"**-** `{prefixes[0]}heatmap Bob`\n" \
                 "**Notes:** none\n",
             "help":
                 "**Name:** help\n" \
@@ -259,7 +282,10 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}help|h [<command>]`\n" \
                 "**Aliases:** `h`\n" \
                 "**Arguments:**\n" \
-                "**-** `<command>`: The command to view help information about. If no value is supplied, general help information will be shown.\n" \
+                "**-** `<command>`: The command to view help information about. If no value is supplied, general help information will be shown\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}help`\n" \
+                f"**-** `{prefixes[0]}help config`\n" \
                 "**Notes:** none\n",
             "leaderboard":
                 "**Name:** leaderboard\n" \
@@ -267,7 +293,12 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}leaderboard|l [<user>]`\n" \
                 "**Aliases:** `l`\n" \
                 "**Arguments:**\n" \
-                "**-** `<user>`: The rank, username, or nickname of the user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown.\n" \
+                "**-** `<user>`: The rank, username, or nickname of the user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}leaderboard`\n" \
+                f"**-** `{prefixes[0]}leaderboard 1`\n" \
+                f"**-** `{prefixes[0]}leaderboard @Alice`\n" \
+                f"**-** `{prefixes[0]}leaderboard Bob`\n" \
                 "**Notes:** The leaderboard embed will only show the top 20 contributors\n",
             "ping":
                 "**Name:** ping\n" \
@@ -275,6 +306,8 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}ping`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:** none\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}ping`\n" \
                 "**Notes:** none\n",
             "progress":
                 "**Name:** progress\n" \
@@ -282,6 +315,8 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}progress|p`\n" \
                 "**Aliases:** `p`\n" \
                 "**Arguments:** none\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}progress`\n" \
                 "**Notes:** none\n",
             "reload":
                 "**Name:** reload\n" \
@@ -289,14 +324,19 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}reload`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:** none\n" \
-                "**Notes:** none\n",
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}reload`\n" \
+                "**Notes:** This command must be used in a countdown channel\n",
             "speed":
                 "**Name:** speed\n" \
                 "**Description:** Shows information about countdown speed\n" \
                 f"**Usage:** `{prefixes[0]}speed|s [<period>]`\n" \
                 "**Aliases:** `s`\n" \
                 "**Arguments:**\n" \
-                "**-** `<period>`: The size of the period in hours. The default is 24 hours.\n" \
+                "**-** `<period>`: The size of the period in hours (the default is 24 hours)\n" \
+                "**Examples:**\n" \
+                f"**-** `{prefixes[0]}speed`\n" \
+                f"**-** `{prefixes[0]}speed 48`\n" \
                 "**Notes:** none\n",
         }
 
@@ -366,7 +406,7 @@ class Utilities(commands.Cog):
             countdown = getCountdown(session, ctx.channel.id)
             if (countdown):
                 # Send initial response
-                embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting.", color=COLORS["embed"])
+                embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting", color=COLORS["embed"])
                 msg = await ctx.channel.send(embed=embed)
 
                 # Reload messages

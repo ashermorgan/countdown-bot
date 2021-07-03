@@ -45,15 +45,15 @@ POINT_RULES = {
 
 # Error classes
 class EmptyCountdownError(Exception):
-    """Raised when an action cannot be completed because the countdown is empty."""
+    """Raised when an action cannot be completed because the countdown is empty"""
     pass
 
 class MessageNotAllowedError(Exception):
-    """Raised when someone posts twice in a row."""
+    """Raised when someone posts twice in a row"""
     pass
 
 class MessageIncorrectError(Exception):
-    """Raised when someone posts an incorrect number."""
+    """Raised when someone posts an incorrect number"""
     pass
 
 
@@ -133,12 +133,12 @@ class Countdown(Base):
 
     def contributors(self):
         """
-        Get countdown contributor statistics.
+        Get countdown contributor statistics
 
         Returns
         -------
         list
-            A list of contributor statistics.
+            A list of contributor statistics
         """
 
         # Make sure countdown has started
@@ -164,17 +164,17 @@ class Countdown(Base):
 
     def eta(self, period=timedelta(days=1)):
         """
-        Get countdown eta statistics.
+        Get countdown eta statistics
 
         Parameters
         ----------
         period : timedelta
-            The period size. The default is 1 day.
+            The period size (the default is 1 day)
 
         Returns
         -------
         list
-            The countdown eta statistics.
+            The countdown eta statistics
         """
 
         # Make sure countdown has at least two messages
@@ -259,12 +259,12 @@ class Countdown(Base):
 
     def leaderboard(self):
         """
-        Get countdown leaderboard.
+        Get countdown leaderboard
 
         Returns
         -------
         list
-            The leaderboard.
+            The leaderboard
         """
 
         # Make sure countdown has started
@@ -328,12 +328,12 @@ class Countdown(Base):
 
     def progress(self):
         """
-        Get countdown progress statistics.
+        Get countdown progress statistics
 
         Returns
         -------
         dict
-            A dictionary containing countdown progress statistics.
+            A dictionary containing countdown progress statistics
         """
 
         # Make sure countdown has started
@@ -375,17 +375,17 @@ class Countdown(Base):
 
     def speed(self, period=timedelta(days=1)):
         """
-        Get countdown speed statistics.
+        Get countdown speed statistics
 
         Parameters
         ----------
         periodLength : timedelta
-            The period size. The default is 1 day.
+            The period size (the default is 1 day)
 
         Returns
         -------
         list
-            The countdown speed statistics.
+            The countdown speed statistics
         """
 
         # Make sure countdown has started

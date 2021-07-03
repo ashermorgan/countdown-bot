@@ -29,19 +29,19 @@ class CountdownNotFound(Exception):
 
 async def getUsername(bot, id):
     """
-    Get a username from a user ID.
+    Get a username from a user ID
 
     Parameters
     ----------
     bot : commands.Bot
         The bot
     id : int
-        The user ID.
+        The user ID
 
     Returns
     -------
     str
-        The username (ex: "user#0000").
+        The username (ex: "user#0000")
     """
 
     user = await bot.fetch_user(id)
@@ -100,20 +100,28 @@ async def getContributor(bot, countdown, text):
     contributors = [x["author"] for x in countdown.contributors()]
 
     # Get user from mention
-    if (re.match("^<@!\d+>$", text) and int(text[3:-1]) in contributors): return int(text[3:-1])
-    elif (re.match("^<@!\d+>$", text)): raise ContributorNotFound(text)
+    if (re.match("^<@!\d+>$", text) and int(text[3:-1]) in contributors):
+        return int(text[3:-1])
+    elif (re.match("^<@!\d+>$", text)):
+        raise ContributorNotFound(text)
 
     # Get user from username
     for contributor in contributors:
-        try: username = await getUsername(bot, contributor)
-        except: continue
-        if (username.lower().startswith(text.lower())): return contributor
+        try:
+            username = await getUsername(bot, contributor)
+        except:
+            continue
+        if (username.lower().startswith(text.lower())):
+            return contributor
 
     # Get user from nickname
     for contributor in contributors:
-        try: nickname = await getNickname(bot, countdown.server_id, contributor)
-        except: continue
-        if (nickname.lower().startswith(text.lower())): return contributor
+        try:
+            nickname = await getNickname(bot, countdown.server_id, contributor)
+        except:
+            continue
+        if (nickname.lower().startswith(text.lower())):
+            return contributor
 
     raise ContributorNotFound(text)
 
@@ -142,7 +150,7 @@ def getCountdown(session, id):
 
 def getContextCountdown(session, ctx):
     """
-    Get the most relevant countdown to a certain context.
+    Get the most relevant countdown to a certain context
 
     Parameters
     ----------
@@ -155,7 +163,7 @@ def getContextCountdown(session, ctx):
     -------
     Countdown
         The countdown
-    
+
     Raises
     ------
     CountdownNotFound
@@ -182,7 +190,7 @@ def getContextCountdown(session, ctx):
 
 def getPrefix(databaseSessionMaker, ctx, default):
     """
-    Get the bot prefix for a certain context.
+    Get the bot prefix for a certain context
 
     Parameters
     ----------
