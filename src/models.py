@@ -44,6 +44,10 @@ POINT_RULES = {
 
 
 # Error classes
+class EmptyCountdownError(Exception):
+    """Raised when an action cannot be completed because the countdown is empty."""
+    pass
+
 class MessageNotAllowedError(Exception):
     """Raised when someone posts twice in a row."""
     pass
@@ -137,6 +141,10 @@ class Countdown(Base):
             A list of contributor statistics.
         """
 
+        # Make sure countdown has started
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
+
         # Get contributors
         authors = list(set([x.author_id for x in self.messages]))
 
@@ -170,8 +178,8 @@ class Countdown(Base):
         """
 
         # Make sure countdown has at least two messages
-        if (len(self.messages) < 2):
-            return [[], []]
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
 
         # Initialize period data
         periodEnd = self.messages[0].timestamp + timedelta(hours=self.timezone) + period
@@ -223,6 +231,10 @@ class Countdown(Base):
             A 7x24 2D array containing the heatmap
         """
 
+        # Make sure countdown has started
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
+
         # Initialize result matrix
         result = [[0 for i in range(24)] for j in range(7)]
 
@@ -255,8 +267,9 @@ class Countdown(Base):
             The leaderboard.
         """
 
+        # Make sure countdown has started
         if (len(self.messages) == 0):
-            return []
+            raise EmptyCountdownError()
 
         # Get list of prime numbers
         curTest = 5
@@ -323,17 +336,15 @@ class Countdown(Base):
             A dictionary containing countdown progress statistics.
         """
 
+        # Make sure countdown has started
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
+
         # Get basic statistics
-        if (len(self.messages) > 0):
-            total = self.messages[0].number
-            current = self.messages[-1].number
-            percentage = (total - current) / total * 100
-            start = self.messages[0].timestamp
-        else:
-            total = 0
-            current = 0
-            percentage = 0
-            start = datetime.utcnow()
+        total = self.messages[0].number
+        current = self.messages[-1].number
+        percentage = (total - current) / total * 100
+        start = self.messages[0].timestamp
 
         # Get rate statistics
         if (len(self.messages) > 1 and self.messages[-1].number == 0):
@@ -376,6 +387,10 @@ class Countdown(Base):
         list
             The countdown speed statistics.
         """
+
+        # Make sure countdown has started
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
 
         # Calculate speed statistics
         data = [[], []]

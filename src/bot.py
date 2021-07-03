@@ -1,12 +1,13 @@
 # Import dependencies
 import discord
 from discord.ext import commands
+import traceback
 
 
 # Import modules
 from src import analyticsCog, utilitiesCog
-from src.botUtilities import addMessage, COLORS, getCountdown, getPrefix
-from src.models import getSessionMaker
+from src.botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getCountdown, getPrefix
+from src.models import getSessionMaker, EmptyCountdownError
 
 
 
@@ -70,10 +71,20 @@ class CountdownBot(commands.Bot):
 
     async def on_command_error(self, ctx, error):
         # Send error embed
-        embed=discord.Embed(title="Error", description=str(error), color=COLORS["error"])
+        embed=discord.Embed(title=":warning: Error", description=str(error), color=COLORS["error"])
         if (isinstance(error, commands.CommandNotFound)):
             embed.description = f"Command not found: `{str(error)[9:-14]}`"
+        elif (isinstance(error.original, CountdownNotFound)):
+            embed.description = f"Countdown not found"
+        elif (isinstance(error.original, ContributorNotFound)):
+            embed.description = f"Contributor not found: `{error.original.args[0]}`"
+        elif (isinstance(error.original, EmptyCountdownError)):
+            embed.description = f"The countdown is empty"
+        elif (isinstance(error.original, CommandError)):
+            embed.description = error.original.args[0]
         else:
+            # Unanticipated error
             embed.description = str(error)
-        embed.description += f"\nUse `{(await self.get_prefix(ctx))[0]}help` to view help information\n"
+            traceback.print_exception(type(error), error, error.__traceback__)
+        embed.description += f"\n\nUse `{(await self.get_prefix(ctx))[0]}help` to view help information"
         await ctx.send(embed=embed)

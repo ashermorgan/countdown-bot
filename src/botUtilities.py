@@ -15,8 +15,14 @@ COLORS = {
 
 
 # Error classes
+class CommandError(Exception):
+    """Raised when a command encounters an anticipated error"""
+    pass
 class ContributorNotFound(Exception):
     """Raised when a matching countdown contributor cannot be found"""
+    pass
+class CountdownNotFound(Exception):
+    """Raised when a matching countdown cannot be found"""
     pass
 
 
@@ -149,6 +155,11 @@ def getContextCountdown(session, ctx):
     -------
     Countdown
         The countdown
+    
+    Raises
+    ------
+    CountdownNotFound
+        If a matching countdown cannot be found
     """
 
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
@@ -165,7 +176,7 @@ def getContextCountdown(session, ctx):
         firstMessage = session.query(Message).filter(Message.author_id == ctx.author.id).order_by(Message.timestamp).first()
         if (firstMessage): return firstMessage.countdown
 
-    raise Exception("Countdown channel not found")
+    raise CountdownNotFound()
 
 
 

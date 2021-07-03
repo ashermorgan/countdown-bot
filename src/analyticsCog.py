@@ -10,7 +10,7 @@ import re
 import tempfile
 
 # Import modules
-from src.botUtilities import COLORS, getContextCountdown, getUsername, getContributor, ContributorNotFound
+from src.botUtilities import COLORS, getContextCountdown, getUsername, getContributor, CommandError
 from src.models import POINT_RULES
 
 
@@ -28,25 +28,14 @@ class Analytics(commands.Cog):
         Shows all countdown analytics
         """
 
-        with self.databaseSessionMaker() as session:
-            # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
-
-            # Check if countdown is empty
-            if (len(countdown.messages) == 0):
-                embed=discord.Embed(title=":bar_chart: Countdown Analytics", color=COLORS["error"])
-                embed.description = "The countdown is empty"
-                await ctx.send(embed=embed)
-
-            # Run analytics commands
-            else:
-                await self.contributors(ctx, "")
-                await self.contributors(ctx, "history")
-                if (len(countdown.messages) >= 2): await self.eta(ctx)  # Countdown must have 2 messages to run eta command
-                await self.heatmap(ctx)
-                await self.leaderboard(ctx)
-                await self.progress(ctx)
-                await self.speed(ctx)
+        # Run analytics commands
+        await self.contributors(ctx, "")
+        await self.contributors(ctx, "history")
+        await self.eta(ctx)
+        await self.heatmap(ctx)
+        await self.leaderboard(ctx)
+        await self.progress(ctx)
+        await self.speed(ctx)
 
 
 
@@ -72,10 +61,7 @@ class Analytics(commands.Cog):
             embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors", color=COLORS["embed"])
 
             # Make sure the countdown has started
-            if (len(countdown.messages) == 0):
-                embed.color = COLORS["error"]
-                embed.description = "The countdown is empty."
-            elif (option.lower() in ["h", "history"]):
+            if (option.lower() in ["h", "history"]):
                 # Create figure
                 fig, ax = plt.subplots()
                 ax.set_xlabel("Progress")
@@ -138,9 +124,7 @@ class Analytics(commands.Cog):
                 embed.add_field(name="Contributions",value=contributions, inline=True)
                 embed.set_image(url="attachment://image.png")
             else:
-                embed.color = COLORS["error"]
-                embed.description = f"Unrecognized option: `{option}`\n"
-                embed.description += f"Use `{(await self.bot.get_prefix(ctx))[0]}help contributors` to view help information"
+                raise CommandError(f"Unrecognized option: `{option}`")
 
         # Send embed
         try:
@@ -176,55 +160,51 @@ class Analytics(commands.Cog):
             # Parse period
             try:
                 period = float(period)
-            except:
-                embed.color = COLORS["error"]
-                embed.description = "The period must be a number"
+            except ValueError:
+                raise CommandError(f"Invalid number: `{period}`")
+
+            # Make sure period is valid
+            if (period < 0.01):
+                raise CommandError("The period cannot be less than 0.01 hours")
+
+            # Get stats
+            eta = countdown.eta(timedelta(hours=period))
+
+            # Create figure
+            fig, ax = plt.subplots()
+            ax.set_xlabel("Time")
+            fig.autofmt_xdate()
+
+            # Add ETA data to graph
+            ax.plot(eta[0], eta[1], "C0", label="Estimated Completion Date")
+
+            # Add reference line graph
+            ax.plot([eta[0][0], eta[0][-1]], [eta[0][0], eta[0][-1]], "--C1", label="Current Date")
+
+            # Add legend
+            ax.legend()
+
+            # Save graph
+            fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
+            file = discord.File(tmp.name, filename="image.png")
+
+            # Calculate embed data
+            maxEta = max(eta[1])
+            maxDate = eta[0][eta[1].index(maxEta)]
+            minEta = min(eta[1][1:])
+            minDate = eta[0][eta[1].index(minEta)]
+            end = eta[1][-1] + timedelta(hours=countdown.timezone)
+            endDiff = eta[1][-1] - datetime.utcnow()
+
+            # Add content to embed
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
+            embed.description += f"**Maximum Estimate:** {maxEta.date()} (on {maxDate.date()})\n"
+            embed.description += f"**Minimum Estimate:** {minEta.date()} (on {minDate.date()})\n"
+            if endDiff < timedelta(seconds=0):
+                embed.description += f"**Actual Completion Date:** {end.date()} ({(-1 * endDiff).days:,} days ago)\n"
             else:
-                if (len(countdown.messages) < 2):
-                    embed.color = COLORS["embed"]
-                    embed.description = "The countdown must have at least two messages"
-                elif (period < 0.01):
-                    embed.color = COLORS["error"]
-                    embed.description = "The period cannot be less than 0.01 hours"
-                else:
-                    # Get stats
-                    eta = countdown.eta(timedelta(hours=period))
-
-                    # Create figure
-                    fig, ax = plt.subplots()
-                    ax.set_xlabel("Time")
-                    fig.autofmt_xdate()
-
-                    # Add ETA data to graph
-                    ax.plot(eta[0], eta[1], "C0", label="Estimated Completion Date")
-
-                    # Add reference line graph
-                    ax.plot([eta[0][0], eta[0][-1]], [eta[0][0], eta[0][-1]], "--C1", label="Current Date")
-
-                    # Add legend
-                    ax.legend()
-
-                    # Save graph
-                    fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
-                    file = discord.File(tmp.name, filename="image.png")
-
-                    # Calculate embed data
-                    maxEta = max(eta[1])
-                    maxDate = eta[0][eta[1].index(maxEta)]
-                    minEta = min(eta[1][1:])
-                    minDate = eta[0][eta[1].index(minEta)]
-                    end = eta[1][-1] + timedelta(hours=countdown.timezone)
-                    endDiff = eta[1][-1] - datetime.utcnow()
-
-                    # Add content to embed
-                    embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
-                    embed.description += f"**Maximum Estimate:** {maxEta.date()} (on {maxDate.date()})\n"
-                    embed.description += f"**Minimum Estimate:** {minEta.date()} (on {minDate.date()})\n"
-                    if endDiff < timedelta(seconds=0):
-                        embed.description += f"**Actual Completion Date:** {end.date()} ({(-1 * endDiff).days:,} days ago)\n"
-                    else:
-                        embed.description += f"**Current Estimate:** {end.date()} ({endDiff.days:,} days from now)\n"
-                    embed.set_image(url="attachment://image.png")
+                embed.description += f"**Current Estimate:** {end.date()} ({endDiff.days:,} days from now)\n"
+            embed.set_image(url="attachment://image.png")
 
         # Send embed
         try:
@@ -258,14 +238,10 @@ class Analytics(commands.Cog):
             embed=discord.Embed(title=":calendar_spiral: Countdown Heatmap", color=COLORS["embed"])
 
             # Get user
-            try:
-                if (user == None): userID = None
-                else: userID = await getContributor(self.bot, countdown, user)
-            except ContributorNotFound:
-                embed.color = COLORS["error"]
-                embed.description = f"Contributor not found: `{user}`"
-                await ctx.send(embed=embed)
-                return
+            if (user == None):
+                userID = None
+            else:
+                userID = await getContributor(self.bot, countdown, user)
 
             # Get heatmap matrix
             heatmapMatrix = np.ma.masked_equal(np.array(countdown.heatmap(userID)), 0)
@@ -326,10 +302,7 @@ class Analytics(commands.Cog):
             embed=discord.Embed(title=":trophy: Countdown Leaderboard", color=COLORS["embed"])
 
             # Make sure the countdown has started
-            if (len(countdown.messages) == 0):
-                embed.color = COLORS["error"]
-                embed.description = "The countdown is empty."
-            elif (user is None):
+            if (user is None):
                 # Add description
                 embed.description = f"**Countdown Channel:** <#{countdown.id}>"
 
@@ -355,16 +328,11 @@ class Analytics(commands.Cog):
                 embed.add_field(name="Numbers", value=rules, inline=True)
                 embed.add_field(name="Points", value=values, inline=True)
             else:
-                try:
-                    if (re.match("^\d+$", user) and int(user) > 0 and int(user) <= len(leaderboard)):
-                        rank = int(user) - 1
-                    else:
-                        rank = [x["author"] for x in leaderboard].index(await getContributor(self.bot, countdown, user))
-                except ContributorNotFound:
-                    embed.color = COLORS["error"]
-                    embed.description = f"Contributor not found: `{user}`"
-                    await ctx.send(embed=embed)
-                    return
+                # Get user rank
+                if (re.match("^\d+$", user) and int(user) > 0 and int(user) <= len(leaderboard)):
+                    rank = int(user) - 1
+                else:
+                    rank = [x["author"] for x in leaderboard].index(await getContributor(self.bot, countdown, user))
 
                 # Add description
                 embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
@@ -410,45 +378,40 @@ class Analytics(commands.Cog):
             # Create embed
             embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress", color=COLORS["embed"])
 
-            # Make sure the countdown has started
-            if (len(countdown.messages) == 0):
-                embed.color = COLORS["error"]
-                embed.description = "The countdown is empty."
+            # Get progress stats
+            stats = countdown.progress()
+
+            # Create figure
+            fig, ax = plt.subplots()
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Progress")
+            fig.autofmt_xdate()
+
+            # Add data to graph
+            x = [stats["start"] + timedelta(hours=countdown.timezone)] + [x["time"] + timedelta(hours=countdown.timezone) for x in stats["progress"]]
+            y = [0] + [x["progress"] for x in stats["progress"]]
+            ax.plot(x, y)
+
+            # Save graph
+            fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
+            file = discord.File(tmp.name, filename="image.png")
+
+            # Calculate embed data
+            start = (stats["start"] + timedelta(hours=countdown.timezone)).date()
+            startDiff = (datetime.utcnow() - stats["start"]).days
+            end = (stats["eta"] + timedelta(hours=countdown.timezone)).date()
+            endDiff = stats["eta"] - datetime.utcnow()
+
+            # Add content to embed
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
+            embed.description += f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
+            embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
+            embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
+            if endDiff < timedelta(seconds=0):
+                embed.description += f"**End Date:** {end} ({(-1 * endDiff).days:,} days ago)\n"
             else:
-                # Get progress stats
-                stats = countdown.progress()
-
-                # Create figure
-                fig, ax = plt.subplots()
-                ax.set_xlabel("Time")
-                ax.set_ylabel("Progress")
-                fig.autofmt_xdate()
-
-                # Add data to graph
-                x = [stats["start"] + timedelta(hours=countdown.timezone)] + [x["time"] + timedelta(hours=countdown.timezone) for x in stats["progress"]]
-                y = [0] + [x["progress"] for x in stats["progress"]]
-                ax.plot(x, y)
-
-                # Save graph
-                fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
-                file = discord.File(tmp.name, filename="image.png")
-
-                # Calculate embed data
-                start = (stats["start"] + timedelta(hours=countdown.timezone)).date()
-                startDiff = (datetime.utcnow() - stats["start"]).days
-                end = (stats["eta"] + timedelta(hours=countdown.timezone)).date()
-                endDiff = stats["eta"] - datetime.utcnow()
-
-                # Add content to embed
-                embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
-                embed.description += f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
-                embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
-                embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
-                if endDiff < timedelta(seconds=0):
-                    embed.description += f"**End Date:** {end} ({(-1 * endDiff).days:,} days ago)\n"
-                else:
-                    embed.description += f"**Estimated End Date:** {end} ({endDiff.days:,} days from now)\n"
-                embed.set_image(url="attachment://image.png")
+                embed.description += f"**Estimated End Date:** {end} ({endDiff.days:,} days from now)\n"
+            embed.set_image(url="attachment://image.png")
 
         # Send embed
         try:
@@ -484,48 +447,44 @@ class Analytics(commands.Cog):
             # Parse period
             try:
                 period = float(period)
-            except:
-                embed.color = COLORS["error"]
-                embed.description = "The period must be a number"
+            except ValueError:
+                raise CommandError(f"Invalid number: `{period}`")
+
+            # Make sure period is valid
+            if (period < 0.01):
+                raise CommandError("The period cannot be less than 0.01 hours")
+
+            # Get stats
+            stats = countdown.progress()
+            period = timedelta(hours=period)
+            speed = countdown.speed(period)
+
+            # Create figure
+            fig, ax = plt.subplots()
+            ax.set_xlabel("Time")
+            ax.set_ylabel("Progress per Period")
+            fig.autofmt_xdate()
+
+            # Add data to graph
+            for i in range(0, len(speed[0])):
+                ax.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
+
+            # Save graph
+            fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
+            file = discord.File(tmp.name, filename="image.png")
+
+            # Add content to embed
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
+            embed.description += f"**Period Size:** {period}\n"
+            if (len(countdown.messages) > 1):
+                rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
             else:
-                if (len(countdown.messages) == 0):
-                    embed.color = COLORS["error"]
-                    embed.description = "The countdown is empty."
-                elif (period < 0.01):
-                    embed.color = COLORS["error"]
-                    embed.description = "The period cannot be less than 0.01 hours"
-                else:
-                    # Get stats
-                    stats = countdown.progress()
-                    period = timedelta(hours=period)
-                    speed = countdown.speed(period)
-
-                    # Create figure
-                    fig, ax = plt.subplots()
-                    ax.set_xlabel("Time")
-                    ax.set_ylabel("Progress per Period")
-                    fig.autofmt_xdate()
-
-                    # Add data to graph
-                    for i in range(0, len(speed[0])):
-                        ax.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
-
-                    # Save graph
-                    fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
-                    file = discord.File(tmp.name, filename="image.png")
-
-                    # Add content to embed
-                    embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
-                    embed.description += f"**Period Size:** {period}\n"
-                    if (len(countdown.messages) > 1):
-                        rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
-                    else:
-                        rate = 0
-                    embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
-                    embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
-                    embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
-                    embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
-                    embed.set_image(url="attachment://image.png")
+                rate = 0
+            embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
+            embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
+            embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
+            embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
+            embed.set_image(url="attachment://image.png")
 
         # Send embed
         try:

@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 
 # Import modules
-from src.botUtilities import COLORS, getContextCountdown, getCountdown, loadCountdown
+from src.botUtilities import COLORS, CommandError, getContextCountdown, getCountdown, loadCountdown
 from src.models import Countdown, Prefix, Reaction
 
 
@@ -23,46 +23,41 @@ class Utilities(commands.Cog):
         """
 
         with self.databaseSessionMaker() as session:
-            # Channel is already a countdown
+            # Check if channel is already a countdown
             if (getCountdown(session, ctx.channel.id)):
-                embed = discord.Embed(title="Error", description="This channel is already a countdown", color=COLORS["error"])
-                await ctx.send(embed=embed)
+                raise CommandError("This channel is already a countdown")
 
-            # Channel is a DM
-            elif (not isinstance(ctx.channel, discord.channel.TextChannel)):
-                embed = discord.Embed(title="Error", description="This command must be run inside a server", color=COLORS["error"])
-                await ctx.send(embed=embed)
+            # Check if channel is a DM
+            if (not isinstance(ctx.channel, discord.channel.TextChannel)):
+                raise CommandError("This command must be run inside a server")
 
-            # User isn't authorized
-            elif (not ctx.message.author.guild_permissions.administrator):
-                embed = discord.Embed(title="Error", description="You must be an administrator to turn a channel into a countdown", color=COLORS["error"])
-                await ctx.send(embed=embed)
+            # Check if user isn't authorized
+            if (not ctx.message.author.guild_permissions.administrator):
+                raise CommandError("You must be an administrator to turn a channel into a countdown")
 
-            # Channel is valid
-            else:
-                # Create countdown
-                countdown = Countdown(
-                    id = ctx.channel.id,
-                    server_id = ctx.channel.guild.id,
-                    timezone = 0,
-                    prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in self.bot.prefixes],
-                    reactions = [],
-                    messages = [],
-                )
+            # Create countdown
+            countdown = Countdown(
+                id = ctx.channel.id,
+                server_id = ctx.channel.guild.id,
+                timezone = 0,
+                prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in self.bot.prefixes],
+                reactions = [],
+                messages = [],
+            )
 
-                # Send initial response
-                print(f"Activated {self.bot.get_channel(ctx.channel.id)} as a countdown")
-                embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
-                msg = await ctx.send(embed=embed)
+            # Send initial response
+            print(f"Activated {self.bot.get_channel(ctx.channel.id)} as a countdown")
+            embed = discord.Embed(title=":clock3: Loading Countdown", description="@here This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
+            msg = await ctx.send(embed=embed)
 
-                # Load countdown
-                await loadCountdown(self.bot, countdown)
-                session.add(countdown)
-                session.commit()
+            # Load countdown
+            await loadCountdown(self.bot, countdown)
+            session.add(countdown)
+            session.commit()
 
-                # Send final response
-                embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
-                await msg.edit(embed=embed)
+            # Send final response
+            embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="@here This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
+            await msg.edit(embed=embed)
 
 
 
@@ -77,15 +72,12 @@ class Utilities(commands.Cog):
 
         # Make sure context is in a server
         if (not isinstance(ctx.channel, discord.channel.TextChannel)):
-            embed.color = COLORS["error"]
-            embed.description = "This command must be run in a countdown channel or a server with a countdown channel"
-            await ctx.send(embed=embed)
-            return
+            raise CommandError("This command must be run in a countdown channel or a server with a countdown channel")
 
         with self.databaseSessionMaker() as session:
             # Get countdown channel
             countdown = getContextCountdown(session, ctx)
-
+            
             # Get / set settings
             if (key is None):
                 embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
@@ -98,17 +90,14 @@ class Utilities(commands.Cog):
                 for number in list(dict.fromkeys([x.number for x in countdown.reactions])):
                     embed.description += f"**-** #{number}: {', '.join([x.value for x in countdown.reactions if x.number == number])}\n"
             elif (not ctx.message.author.guild_permissions.administrator):
-                embed.color = COLORS["error"]
-                embed.description = f"You must be an administrator to modify settings"
+                raise CommandError("You must be an administrator to modify settings")
             elif (len(args) == 0):
-                embed.color = COLORS["error"]
-                embed.description = f"Please provide a value for the setting"
+                raise CommandError("Please provide a value for the setting")
             elif (key in ["tz", "timezone"]):
                 try:
                     countdown.timezone = float(args[0])
                 except:
-                    embed.color = COLORS["error"]
-                    embed.description = f"Invalid timezone: {args[0]}"
+                    raise CommandError(f"Invalid timezone: `{args[0]}`")
                 else:
                     embed.description = f"Timezone set to {countdown.getTimezone()}"
             elif (key in ["prefix", "prefixes"]):
@@ -118,8 +107,7 @@ class Utilities(commands.Cog):
                 try:
                     number = int(args[0])
                     if (number < 0):
-                        embed.color = COLORS["error"]
-                        embed.description = f"Number must be greater than zero"
+                        raise CommandError("Number must be greater than zero")
                     elif (len(args) == 1):
                         countdown.reactions = [x for x in countdown.reactions if x.number != number]
                         embed.description = f"Removed reactions for #{number}"
@@ -128,12 +116,9 @@ class Utilities(commands.Cog):
                         countdown.reactions += [Reaction(countdown_id=countdown.id, number=number, value=x) for x in args[1:]]
                         embed.description = f"Updated reactions for #{number}"
                 except:
-                    embed.color = COLORS["error"]
-                    embed.description = f"Invalid number: {args[0]}"
+                    raise CommandError(f"Invalid number: `{args[0]}`")
             else:
-                embed.color = COLORS["error"]
-                embed.description = f"Setting not found: `{key}`\n"
-                embed.description += f"Use `{(await self.bot.get_prefix(ctx))[0]}help config` to view the list of settings"
+                raise CommandError(f"Setting not found: `{key}`")
 
             # Save changes
             session.commit()
@@ -150,27 +135,23 @@ class Utilities(commands.Cog):
         """
 
         with self.databaseSessionMaker() as session:
-            # Channel isn't a countdown
+            # Check if channel isn't a countdown
             countdown = getCountdown(session, ctx.channel.id)
             if (not countdown):
-                embed = discord.Embed(title="Error", description="This channel isn't a countdown", color=COLORS["error"])
-                await ctx.send(embed=embed)
+                raise CommandError("This channel isn't a countdown")
 
-            # User isn't authorized
-            elif (not ctx.author.guild_permissions.administrator):
-                embed = discord.Embed(title="Error", description="You must be an administrator to deactivate a countdown channel", color=COLORS["error"])
-                await ctx.send(embed=embed)
+            # Check if user isn't authorized
+            if (not ctx.author.guild_permissions.administrator):
+                raise CommandError("You must be an administrator to deactivate a countdown channel")
 
-            # Channel is valid
-            else:
-                # Delete countdown
-                session.delete(countdown)
-                session.commit()
+            # Delete countdown
+            session.delete(countdown)
+            session.commit()
 
-                # Send response
-                print(f"Deactivated {self.bot.get_channel(ctx.channel.id)} as a countdown")
-                embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown", color=COLORS["embed"])
-                await ctx.send(embed=embed)
+            # Send response
+            print(f"Deactivated {self.bot.get_channel(ctx.channel.id)} as a countdown")
+            embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="@here This channel is no longer a countdown", color=COLORS["embed"])
+            await ctx.send(embed=embed)
 
 
 
@@ -356,9 +337,7 @@ class Utilities(commands.Cog):
         elif (command.lower() in ["s", "speed"]):
             embed.description = help_text["speed"]
         else:
-            embed.color = COLORS["error"]
-            embed.description = f"Command not found: `{command}`\n"
-            embed.description += f"Use `{prefixes[0]}help` to view the list of commands"
+            raise CommandError(f"Command not found: `{command}`")
 
         # Send embed
         await ctx.send(embed=embed)
@@ -399,5 +378,4 @@ class Utilities(commands.Cog):
                 embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!", color=COLORS["embed"])
                 await msg.edit(embed=embed)
             else:
-                embed = discord.Embed(title="Error", description="This command must be used in a countdown channel", color = COLORS["error"])
-                await ctx.channel.send(embed=embed)
+                raise CommandError("Countdown not found\nThis command must be used in a countdown channel")
