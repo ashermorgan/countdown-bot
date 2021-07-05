@@ -162,6 +162,42 @@ class Countdown(Base):
         # Return contributors
         return contributors
 
+    def historicalContributors(self):
+        """
+        Get countdown contributor statistics over time
+
+        Returns
+        -------
+        dict
+            A dictionary of historical contributor statistics
+        """
+
+        # Make sure countdown has at least two messages
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
+
+        # Get contributors
+        contributors = self.contributors()
+
+        # Get countdown total
+        total = self.messages[0].number
+
+        # Initialize result dictionary
+        result = {}
+        for contributor in contributors:
+            result[contributor["author"]] = [{"progress":0, "percentage":0, "total":0}]
+
+        # Populate result dictionary
+        for message in self.messages:
+            for author in result:
+                if (author == message.author_id):
+                    result[author] += [{"progress":(total - message.number), "percentage":(result[author][-1]["total"] + 1)/(total - message.number + 1), "total":result[author][-1]["total"] + 1}]
+                else:
+                    result[author] += [{"progress":(total - message.number), "percentage":(result[author][-1]["total"] + 0)/(total - message.number + 1), "total":result[author][-1]["total"] + 0}]
+
+        # Return result
+        return result
+
     def eta(self, period=timedelta(days=1)):
         """
         Get countdown eta statistics

@@ -53,10 +53,6 @@ class Analytics(commands.Cog):
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
             tmp.close()
 
-            # Get stats
-            stats = countdown.progress()
-            contributors = countdown.contributors()
-
             # Create embed
             embed=discord.Embed(title=":busts_in_silhouette: Countdown Contributors", color=COLORS["embed"])
 
@@ -68,23 +64,15 @@ class Analytics(commands.Cog):
                 ax.set_ylabel("Percentage of Contributions")
                 ax.yaxis.set_major_formatter(PercentFormatter())
 
-                # Get historical contributor data
-                authors = {}
-                for author in contributors:
-                    authors[author["author"]] = [{"progress":0, "percentage":0, "total":0}]
-                for message in countdown.messages:
-                    for author in authors:
-                        if (author == message.author_id):
-                            authors[author] += [{"progress":(stats["total"] - message.number), "percentage":(authors[author][-1]["total"] + 1)/(stats["total"] - message.number + 1) * 100, "total":authors[author][-1]["total"] + 1}]
-                        else:
-                            authors[author] += [{"progress":(stats["total"] - message.number), "percentage":(authors[author][-1]["total"] + 0)/(stats["total"] - message.number + 1) * 100, "total":authors[author][-1]["total"] + 0}]
+                # Get stats
+                contributors = countdown.historicalContributors()
 
                 # Plot data and add legend
-                for author in list(authors.keys())[:min(len(authors), 15)]:
+                for author in list(contributors.keys())[:min(len(contributors), 15)]:
                     # Top 15 contributors get included in the legend
-                    ax.plot([x["progress"] for x in authors[author]], [x["percentage"] for x in authors[author]], label=await getUsername(self.bot, author))
-                for author in list(authors.keys())[15:max(len(authors), 15)]:
-                    ax.plot([x["progress"] for x in authors[author]], [x["percentage"] for x in authors[author]])
+                    ax.plot([x["progress"] for x in contributors[author]], [x["percentage"] * 100 for x in contributors[author]], label=await getUsername(self.bot, author))
+                for author in list(contributors.keys())[15:max(len(contributors), 15)]:
+                    ax.plot([x["progress"] for x in contributors[author]], [x["percentage"] * 100 for x in contributors[author]])
                 ax.legend(bbox_to_anchor=(1,1.025), loc="upper left")
 
                 # Save graph
@@ -97,6 +85,9 @@ class Analytics(commands.Cog):
             elif (option == ""):
                 # Create figure
                 fig, ax = plt.subplots()
+
+                # Get stats
+                contributors = countdown.contributors()
 
                 # Add data to graph
                 x = [x["author"] for x in contributors]
