@@ -235,31 +235,48 @@ class Analytics(commands.Cog):
                 userID = await getContributor(self.bot, countdown, user)
 
             # Get heatmap matrix
-            heatmapMatrix = np.ma.masked_equal(np.array(countdown.heatmap(userID)), 0)
+            heatmapMatrix = countdown.heatmap(userID)
+
+            # Define hour and weekday names
+            hours = ["12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM", "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM"]
+            weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
             # Create figure
             fig, ax = plt.subplots()
             ax.set_xlabel("Hour of Day")
             ax.set_xticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
-            ax.set_xticklabels(["12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM", "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM"])
+            ax.set_xticklabels(hours)
             ax.set_ylabel("Day of Week")
             ax.set_yticks([0, 1, 2, 3, 4, 5, 6])
-            ax.set_yticklabels(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])
+            ax.set_yticklabels(weekdays)
 
             # Add data to graph
             cmap = plt.get_cmap("jet").copy()
             cmap.set_bad("gray")
-            cax = ax.matshow(heatmapMatrix, cmap=cmap, aspect="auto")
+            cax = ax.matshow(np.ma.masked_equal(np.array(heatmapMatrix), 0), cmap=cmap, aspect="auto")
             fig.colorbar(cax)
 
             # Save graph
             fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
             file = discord.File(tmp.name, filename="image.png")
 
+            # Get embed data
+            total = np.sum(heatmapMatrix)
+            averageValue = total / (24*7)
+            maxValue = np.max(heatmapMatrix)
+            maxWeekday = np.where(heatmapMatrix == maxValue)[0][0]
+            maxHour = np.where(heatmapMatrix == maxValue)[1][0]
+            currentWeekday = ((datetime.utcnow() + timedelta(hours=countdown.timezone)).weekday() + 1) % 7
+            currentHour = (datetime.utcnow() + timedelta(hours=countdown.timezone)).hour
+            currentValue = heatmapMatrix[currentWeekday][currentHour]
+
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
+            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
             if (userID): embed.description += f"**User:** <@{userID}>\n"
-            embed.description += f"**Total Contributions:** {np.sum(heatmapMatrix):,}\n"
+            embed.description += f"**Total Contributions:** {total:,}\n"
+            embed.description += f"**Average Contributions per Zone:** {round(averageValue):,}\n"
+            embed.description += f"**Best Zone:** {hours[maxHour]} to {hours[(maxHour + 1) % 24]} on {weekdays[maxWeekday]}s - {maxValue:,} contributions\n"
+            embed.description += f"**Current Zone:** {hours[currentHour]} to {hours[(currentHour + 1) % 24]} on {weekdays[currentWeekday]}s - {currentValue:,} contributions\n"
             embed.set_image(url="attachment://image.png")
 
         # Send embed
