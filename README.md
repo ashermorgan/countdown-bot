@@ -28,7 +28,7 @@ A Discord bot that facilitates countdowns and generates detailed countdown analy
 
 6. Add the bot to your server
     ```
-    https://discordapp.com/oauth2/authorize?client_id=BOT_ID_HERE&scope=bot&permissions=232512
+    https://discordapp.com/oauth2/authorize?client_id=BOT_ID_HERE&scope=bot&permissions=101440
     ```
 
 7. Send `c.help` to the bot get a list of commands and a description of the bot's behavior
