@@ -14,7 +14,7 @@ from src.models import getSessionMaker, EmptyCountdownError
 class CountdownBot(commands.Bot):
     def __init__(self, databaseLocation, prefixes=["c."]):
         # Initialize bot
-        commands.Bot.__init__(self, command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes), case_insensitive=True)
+        commands.Bot.__init__(self, command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes))
 
         # Set properties
         self.databaseSessionMaker = getSessionMaker(databaseLocation)
@@ -63,6 +63,10 @@ class CountdownBot(commands.Bot):
 
         # Run commands
         try:
+            # Make command prefixes, names, and arguments case insensitive
+            obj.content = obj.content.lower()
+
+            # Execute command
             await self.process_commands(obj)
         except:
             pass

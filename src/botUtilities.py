@@ -206,7 +206,7 @@ def getPrefix(databaseSessionMaker, ctx, default):
         # Countdown channel
         countdown = getCountdown(session, ctx.channel.id)
         if (countdown and len(countdown.prefixes) > 0):
-            return [x.value for x in countdown.prefixes]
+            return [x.value.lower() for x in countdown.prefixes]
 
         # Server with countdown channels
         if (isinstance(ctx.channel, discord.channel.TextChannel)):
@@ -214,12 +214,12 @@ def getPrefix(databaseSessionMaker, ctx, default):
             # Get list of prefixes
             prefixes = []
             for countdown in serverCountdowns:
-                prefixes += [x.value for x in countdown.prefixes]
+                prefixes += [x.value.lower() for x in countdown.prefixes]
             if (len(prefixes) > 0):
                 return list(dict.fromkeys(prefixes))
 
         # Return default prefixes
-        return default
+        return [x.lower() for x in default]
 
 
 
