@@ -7,6 +7,8 @@ with open(os.path.join(os.path.dirname(__file__), "settings.json"), "w") as f:
     data = {
         "token": "YOUR_TOKEN_HERE",
         "prefixes": ["c."],
-        "database": "sqlite:///data.sqlite3"
+        "database": "sqlite:///data.sqlite3",
+        "log": "log.txt",
+        "log_level": "info",
     }
     json.dump(data, f)

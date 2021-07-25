@@ -126,8 +126,8 @@ class Analytics(commands.Cog):
         # Remove temp file
         try:
             os.remove(tmp.name)
-        except:
-            print(f"Unable to delete temp file: {tmp.name}")
+        except Exception as e:
+            self.bot.logger.error(f"Unable to delete temp file {tmp.name}", exc_info=e)
 
 
 
@@ -206,8 +206,8 @@ class Analytics(commands.Cog):
         # Remove temp file
         try:
             os.remove(tmp.name)
-        except:
-            print(f"Unable to delete temp file: {tmp.name}")
+        except Exception as e:
+            self.bot.logger.error(f"Unable to delete temp file {tmp.name}", exc_info=e)
 
 
 
@@ -288,8 +288,8 @@ class Analytics(commands.Cog):
         # Remove temp file
         try:
             os.remove(tmp.name)
-        except:
-            print(f"Unable to delete temp file: {tmp.name}")
+        except Exception as e:
+            self.bot.logger.error(f"Unable to delete temp file {tmp.name}", exc_info=e)
 
 
 
@@ -430,8 +430,8 @@ class Analytics(commands.Cog):
         # Remove temp file
         try:
             os.remove(tmp.name)
-        except:
-            print(f"Unable to delete temp file: {tmp.name}")
+        except Exception as e:
+            self.bot.logger.error(f"Unable to delete temp file {tmp.name}", exc_info=e)
 
 
 
@@ -503,5 +503,5 @@ class Analytics(commands.Cog):
         # Remove temp file
         try:
             os.remove(tmp.name)
-        except:
-            print(f"Unable to delete temp file: {tmp.name}")
+        except Exception as e:
+            self.bot.logger.error(f"Unable to delete temp file {tmp.name}", exc_info=e)

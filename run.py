@@ -16,4 +16,4 @@ with open(os.path.join(os.path.dirname(__file__), "settings.json"), "a+") as f:
 
 
 # Run countdown-bot
-CountdownBot(settings["database"], settings["prefixes"]).run(settings["token"])
+CountdownBot(settings).run(settings["token"])

@@ -1,7 +1,7 @@
 # Import dependencies
 import discord
 from discord.ext import commands
-import traceback
+import logging
 
 
 # Import modules
@@ -12,13 +12,18 @@ from src.models import getSessionMaker, EmptyCountdownError
 
 
 class CountdownBot(commands.Bot):
-    def __init__(self, databaseLocation, prefixes=["c."]):
+    def __init__(self, settings):
         # Initialize bot
         commands.Bot.__init__(self, command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes))
 
         # Set properties
-        self.databaseSessionMaker = getSessionMaker(databaseLocation)
-        self.prefixes = prefixes
+        self.databaseSessionMaker = getSessionMaker(settings["database"])
+        self.prefixes = settings["prefixes"]
+
+        # Initialize logger
+        logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", handlers=[logging.FileHandler(settings["log"], "a+", "utf-8"), logging.StreamHandler()])
+        self.logger = logging.getLogger()
+        self.logger.setLevel(getattr(logging, settings["log_level"].upper()))
 
         # Add cogs
         self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker))
@@ -27,13 +32,13 @@ class CountdownBot(commands.Bot):
 
 
     async def on_ready(self):
-        print(f"Connected to Discord as {self.user}")
+        self.logger.info(f"Connected to Discord as {self.user} (ID {self.user.id})")
 
 
 
     async def on_guild_join(self, guild):
         # Print status
-        print(f"Added to {guild}")
+        self.logger.info(f"Added to {guild} (ID {guild.id})")
 
         # Create embed
         embed=discord.Embed(title=":rocket: Getting Started with countdown-bot", color=COLORS["embed"])
@@ -89,6 +94,6 @@ class CountdownBot(commands.Bot):
         else:
             # Unanticipated error
             embed.description = str(error)
-            traceback.print_exception(type(error), error, error.__traceback__)
+            logging.error(f"Error during command {ctx.message.content}", exc_info=error)
         embed.description += f"\n\nUse `{(await self.get_prefix(ctx))[0]}help` to view help information"
         await ctx.send(embed=embed)

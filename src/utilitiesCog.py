@@ -46,7 +46,7 @@ class Utilities(commands.Cog):
             )
 
             # Send initial response
-            print(f"Activated {self.bot.get_channel(ctx.channel.id)} as a countdown")
+            self.bot.logger.info(f"Activated {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id}) as a countdown")
             embed = discord.Embed(title=":clock3: Loading Countdown", description="This channel is now a countdown\nPlease wait to start counting", color=COLORS["embed"])
             msg = await ctx.send(embed=embed)
 
@@ -151,7 +151,7 @@ class Utilities(commands.Cog):
             session.commit()
 
             # Send response
-            print(f"Deactivated {self.bot.get_channel(ctx.channel.id)} as a countdown")
+            self.bot.logger.info(f"Deactivated {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id}) as a countdown")
             embed = discord.Embed(title=":octagonal_sign: Countdown Deactivated", description="This channel is no longer a countdown", color=COLORS["embed"])
             await ctx.send(embed=embed)
 
@@ -414,7 +414,7 @@ class Utilities(commands.Cog):
                 session.commit()
 
                 # Send final response
-                print(f"Reloaded messages from {self.bot.get_channel(ctx.channel.id)}")
+                self.bot.logger.info(f"Reloaded messages from {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id})")
                 embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!", color=COLORS["embed"])
                 await msg.edit(embed=embed)
             else:
