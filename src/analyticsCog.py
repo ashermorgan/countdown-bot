@@ -388,6 +388,7 @@ class Analytics(commands.Cog):
 
             # Get progress stats
             stats = countdown.progress()
+            breakStats = countdown.longestBreak()
 
             # Create figure
             fig, ax = plt.subplots()
@@ -405,6 +406,9 @@ class Analytics(commands.Cog):
             file = discord.File(tmp.name, filename="image.png")
 
             # Calculate embed data
+            longestBreakDuration = timedelta(days=breakStats['duration'].days, seconds=breakStats['duration'].seconds)
+            longestBreakStart = breakStats['start'].date()
+            longestBreakEnd = breakStats['end'].date()
             start = (stats["start"] + timedelta(hours=countdown.timezone)).date()
             startDiff = (datetime.utcnow() - stats["start"]).days
             end = (stats["eta"] + timedelta(hours=countdown.timezone)).date()
@@ -414,6 +418,7 @@ class Analytics(commands.Cog):
             embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
             embed.description += f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
             embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
+            embed.description += f"**Longest Break:** {longestBreakDuration} ({longestBreakStart} to {longestBreakEnd})\n"
             embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
             if endDiff < timedelta(seconds=0):
                 embed.description += f"**End Date:** {end} ({(-1 * endDiff).days:,} days ago)\n"

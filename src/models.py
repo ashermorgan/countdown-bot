@@ -362,6 +362,43 @@ class Countdown(Base):
         leaderboard = sorted(leaderboard, key=lambda x: x["points"], reverse=True)
         return leaderboard
 
+    def longestBreak(self):
+        """
+        Get the longest countdown break
+
+        Returns
+        -------
+        dict
+            A dictionary containing information about the longest countdown break
+        """
+
+        # Make sure countdown has started
+        if (len(self.messages) == 0):
+            raise EmptyCountdownError()
+
+        # Calculate longest break
+        breaks = []
+        for i in range(0, len(self.messages) - 1):
+          breaks += [self.messages[i+1].timestamp - self.messages[i].timestamp]
+        if (self.messages[-1].number == 0):
+            breaks += [timedelta(seconds=0)]
+        else:
+            breaks += [datetime.utcnow() - self.messages[-1].timestamp]
+        longestBreak = max(breaks)
+        index = breaks.index(longestBreak)
+        start = self.messages[index].timestamp + timedelta(hours=self.timezone)
+        if (index == len(self.messages) - 1):
+            end = datetime.utcnow() + timedelta(hours=self.timezone)
+        else:
+            end = self.messages[index + 1].timestamp + timedelta(hours=self.timezone)
+
+        # Return statistics
+        return {
+            'duration': longestBreak,
+            'start': start,
+            'end': end,
+        }
+
     def progress(self):
         """
         Get countdown progress statistics
