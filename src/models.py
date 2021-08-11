@@ -429,8 +429,9 @@ class Countdown(Base):
             rate = (total - current)/((datetime.utcnow() - self.messages[0].timestamp) / timedelta(days=1))
             eta = datetime.utcnow() + timedelta(days=current/rate)
         else:
+            # Only 1 message in the countdown, can't compute real rate or eta
             rate = 0
-            eta = datetime.utcnow()
+            eta = datetime.utcnow() + timedelta(days=1)
 
         # Get list of progress
         progress = [{"time":x.timestamp, "progress":x.number} for x in self.messages]
