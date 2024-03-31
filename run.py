@@ -1,19 +1,27 @@
 # Import dependencies
-import json
+from dotenv import load_dotenv
+import logging
 import os
 
 # Import modules
 from src import CountdownBot
-
-
+from src.models import getSessionMaker
 
 # Load settings
-settings = {}
-with open(os.path.join(os.path.dirname(__file__), "settings.json"), "a+") as f:
-    f.seek(0)
-    settings = json.load(f)
+load_dotenv()
 
+# Setup logging
+logger = logging.getLogger()
+logger.setLevel(getattr(logging, os.environ.get("LOG_LEVEL", "INFO")))
+logging.basicConfig(
+    format = "[{asctime}] [{levelname:<8}] {name}: {message}",
+    style="{",
+    filename = os.environ.get("LOG_FILE", "log.txt"),
+)
 
+# Connect to database
+databaseSessionMaker = getSessionMaker(os.environ.get("DATABASE"))
 
-# Run countdown-bot
-CountdownBot(settings).run(settings["token"])
+# Run bot
+bot = CountdownBot(databaseSessionMaker, [os.environ.get("PREFIX", "!")])
+bot.run(os.environ.get("TOKEN"))

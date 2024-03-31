@@ -7,27 +7,23 @@ import logging
 # Import modules
 from src import analyticsCog, utilitiesCog
 from src.botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getCountdown, getPrefix
-from src.models import getSessionMaker, EmptyCountdownError
+from src.models import EmptyCountdownError
 
 
 
 class CountdownBot(commands.Bot):
-    def __init__(self, settings):
+    def __init__(self, databaseSessionMaker, prefixes):
+        # Set properties
+        self.databaseSessionMaker = databaseSessionMaker
+        self.prefixes = prefixes
+        self.logger = logging.getLogger(__name__)
+
         # Get intents
         intents = discord.Intents.default()
         intents.message_content = True
 
         # Initialize bot
-        commands.Bot.__init__(self, command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes), intents=intents)
-
-        # Set properties
-        self.databaseSessionMaker = getSessionMaker(settings["database"])
-        self.prefixes = settings["prefixes"]
-
-        # Initialize logger
-        logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", handlers=[logging.FileHandler(settings["log"], "a+", "utf-8"), logging.StreamHandler()])
-        self.logger = logging.getLogger()
-        self.logger.setLevel(getattr(logging, settings["log_level"].upper()))
+        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes), intents=intents)
 
 
 

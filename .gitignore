@@ -3,7 +3,7 @@
 __pycache__
 *.pyc
 
-settings.json
 *.db
 *.sqlite3
 log.txt
+.env
