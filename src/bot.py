@@ -13,8 +13,12 @@ from src.models import getSessionMaker, EmptyCountdownError
 
 class CountdownBot(commands.Bot):
     def __init__(self, settings):
+        # Get intents
+        intents = discord.Intents.default()
+        intents.message_content = True
+
         # Initialize bot
-        commands.Bot.__init__(self, command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes))
+        commands.Bot.__init__(self, command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes), intents=intents)
 
         # Set properties
         self.databaseSessionMaker = getSessionMaker(settings["database"])
@@ -25,9 +29,11 @@ class CountdownBot(commands.Bot):
         self.logger = logging.getLogger()
         self.logger.setLevel(getattr(logging, settings["log_level"].upper()))
 
-        # Add cogs
-        self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker))
-        self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker))
+
+
+    async def setup_hook(self):
+        await self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker))
+        await self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker))
 
 
 

@@ -313,7 +313,7 @@ async def loadCountdown(bot, countdown):
     countdown.messages = []
 
     # Get Discord messages
-    rawMessages = await bot.get_channel(countdown.id).history(limit=10100).flatten()
+    rawMessages = [message async for message in bot.get_channel(countdown.id).history(limit=10100)]
     rawMessages.reverse()
 
     # Add messages to countdown
