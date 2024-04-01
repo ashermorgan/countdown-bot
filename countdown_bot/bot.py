@@ -5,9 +5,9 @@ import logging
 
 
 # Import modules
-from src import analyticsCog, utilitiesCog
-from src.botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getCountdown, getPrefix
-from src.models import EmptyCountdownError
+from . import analyticsCog, utilitiesCog
+from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getCountdown, getPrefix
+from .models import EmptyCountdownError
 
 
 

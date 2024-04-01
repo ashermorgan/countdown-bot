@@ -10,8 +10,8 @@ import re
 import tempfile
 
 # Import modules
-from src.botUtilities import COLORS, getContextCountdown, getUsername, getContributor, CommandError
-from src.models import POINT_RULES
+from .botUtilities import COLORS, getContextCountdown, getUsername, getContributor, CommandError
+from .models import POINT_RULES
 
 
 

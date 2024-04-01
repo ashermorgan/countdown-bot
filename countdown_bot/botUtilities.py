@@ -3,7 +3,7 @@ import discord
 import re
 
 # Import modules
-from src.models import Countdown, Message, MessageIncorrectError, MessageNotAllowedError
+from .models import Countdown, Message, MessageIncorrectError, MessageNotAllowedError
 
 
 

@@ -22,7 +22,7 @@ A Discord bot that facilitates countdowns and generates detailed countdown analy
 
 4. Run the bot
     ```
-    python run.py
+    python -m countdown_bot
     ```
 
 5. Add the bot to your server

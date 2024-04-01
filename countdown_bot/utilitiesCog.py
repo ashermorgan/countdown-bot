@@ -3,8 +3,8 @@ import discord
 from discord.ext import commands
 
 # Import modules
-from src.botUtilities import COLORS, CommandError, getContextCountdown, getCountdown, loadCountdown
-from src.models import Countdown, Prefix, Reaction
+from .botUtilities import COLORS, CommandError, getContextCountdown, getCountdown, loadCountdown
+from .models import Countdown, Prefix, Reaction
 
 
 

@@ -4,8 +4,8 @@ import logging
 import os
 
 # Import modules
-from src import CountdownBot
-from src.models import getSessionMaker
+from .bot import CountdownBot
+from .models import getSessionMaker
 
 # Load settings
 load_dotenv()
