@@ -2,6 +2,7 @@
 from dotenv import load_dotenv
 import logging
 import os
+import psycopg
 
 # Import modules
 from .bot import CountdownBot
@@ -21,7 +22,8 @@ logging.basicConfig(
 
 # Connect to database
 databaseSessionMaker = getSessionMaker(os.environ.get("DATABASE"))
+db_connection = psycopg.connect(os.environ.get("DATABASE2"))
 
 # Run bot
-bot = CountdownBot(databaseSessionMaker, [os.environ.get("PREFIX", "!")])
+bot = CountdownBot(databaseSessionMaker, [os.environ.get("PREFIX", "!")], db_connection)
 bot.run(os.environ.get("TOKEN"))

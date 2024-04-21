@@ -12,10 +12,11 @@ from .models import EmptyCountdownError
 
 
 class CountdownBot(commands.Bot):
-    def __init__(self, databaseSessionMaker, prefixes):
+    def __init__(self, databaseSessionMaker, prefixes, db_connection):
         # Set properties
         self.databaseSessionMaker = databaseSessionMaker
         self.prefixes = prefixes
+        self.db_connection = db_connection
         self.logger = logging.getLogger(__name__)
 
         # Get intents
