@@ -1,5 +1,7 @@
 -- countdown-bot utility procedures
 
+DROP PROCEDURE IF EXISTS getUserContextCountdown;
+DROP PROCEDURE IF EXISTS getServerContextCountdown;
 DROP PROCEDURE IF EXISTS addMessage;
 DROP TYPE IF EXISTS addMessageResults;
 
@@ -57,5 +59,53 @@ BEGIN
             VALUES (_messageID, _userID, _countdownID, _value, _timestamp);
         result := 'good';
     END IF;
+END
+$$;
+
+-- Get the most relevant countdown to a server channel
+CREATE PROCEDURE getServerContextCountdown (
+    _serverID IN INT,   -- The server ID
+    channelID IN INT,   -- The channel ID
+    countdownID OUT INT -- The ID of the most relevant countdown
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    -- Check if the channel is a countdown
+    SELECT countdowns.countdownID
+    INTO countdownID
+    FROM countdowns
+    WHERE countdowns.countdownID = channelID
+
+    UNION ALL
+    (
+        -- Get server countdowns sorted by most recent activity
+        SELECT countdowns.countdownID
+        FROM countdowns
+        LEFT OUTER JOIN messages
+            ON messages.countdownID = countdowns.countdownID
+        WHERE serverID = _serverID
+        GROUP BY countdowns.countdownID
+        ORDER BY max(messages.timestamp) DESC NULLS LAST
+    )
+    LIMIT 1;
+END
+$$;
+
+-- Get the most relevant countdown to a user
+CREATE PROCEDURE getUserContextCountdown (
+    _userID IN INT,     -- The user ID
+    countdownID OUT INT -- The ID of the most relevant countdown
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    -- Get user countdowns sorted by most recent activity
+    SELECT countdowns.countdownID
+    INTO countdownID
+    FROM countdowns
+    LEFT OUTER JOIN messages ON messages.countdownID = countdowns.countdownID
+    WHERE userID = _userID
+    GROUP BY countdowns.countdownID
+    ORDER BY max(messages.timestamp) DESC NULLS LAST
+    LIMIT 1;
 END
 $$;
