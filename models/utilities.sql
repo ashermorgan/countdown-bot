@@ -2,6 +2,7 @@
 
 DROP PROCEDURE IF EXISTS getUserContextCountdown;
 DROP PROCEDURE IF EXISTS getServerContextCountdown;
+DROP FUNCTION IF EXISTS getPrefixes;
 DROP PROCEDURE IF EXISTS addMessage;
 DROP TYPE IF EXISTS addMessageResults;
 
@@ -62,11 +63,43 @@ BEGIN
 END
 $$;
 
+-- Get the active prefixes for a server
+CREATE FUNCTION getPrefixes (
+    _serverID IN INT, -- The server ID
+    channelID IN INT  -- The channel ID
+)
+RETURNS TABLE (
+    prefix VARCHAR(8) -- An active prefix
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS(
+        SELECT 1
+        FROM countdowns
+        WHERE countdownID = channelID
+    ) THEN
+        -- Filter prefixes if channel is a countdown
+        RETURN QUERY
+        SELECT value
+        FROM prefixes
+        WHERE prefixes.countdownID = channelID;
+    ELSE
+        -- Return all server prefixes if channel is not a countdown
+        RETURN QUERY
+        SELECT DISTINCT value
+        FROM prefixes
+        JOIN countdowns ON countdowns.countdownID = prefixes.countdownID
+        WHERE countdowns.serverID = _serverID;
+    END IF;
+END
+$$;
+
 -- Get the most relevant countdown to a server channel
 CREATE PROCEDURE getServerContextCountdown (
-    _serverID IN INT,   -- The server ID
-    channelID IN INT,   -- The channel ID
-    countdownID OUT INT -- The ID of the most relevant countdown
+    _serverID IN INT,     -- The server ID
+    channelID IN INT,     -- The channel ID
+    prefix IN VARCHAR(8), -- The prefix used to invoke the bot
+    countdownID OUT INT   -- The ID of the most relevant countdown
 )
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -78,12 +111,14 @@ BEGIN
 
     UNION ALL
     (
-        -- Get server countdowns sorted by most recent activity
+        -- Get server countdowns by prefix sorted by most recent activity
         SELECT countdowns.countdownID
         FROM countdowns
         LEFT OUTER JOIN messages
             ON messages.countdownID = countdowns.countdownID
-        WHERE serverID = _serverID
+        JOIN prefixes
+            ON prefixes.countdownID = countdowns.countdownID
+        WHERE serverID = _serverID AND prefixes.value = prefix
         GROUP BY countdowns.countdownID
         ORDER BY max(messages.timestamp) DESC NULLS LAST
     )
