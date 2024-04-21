@@ -11,11 +11,11 @@ DROP FUNCTION IF EXISTS contributorData;
 
 -- Get overall contributor data for a countdown
 CREATE FUNCTION contributorData (
-    _countdownID INT -- The countdown channel ID
+    _countdownID BIGINT -- The countdown channel ID
 )
 RETURNS TABLE (
     ranking BIGINT,       -- The user's (1-based) contribution ranking
-    userID INT,           -- The user ID
+    userID BIGINT,        -- The user ID
     contributions BIGINT, -- The user's number of contributions
     percentage FLOAT      -- The user's percentage of all contributions
 )
@@ -43,7 +43,7 @@ $$;
 
 -- Calculate the current ETA for each message in a countdown
 CREATE FUNCTION etaData (
-    _countdownID INT -- The countdown channel ID
+    _countdownID BIGINT -- The countdown channel ID
 )
 RETURNS TABLE (
     _timestamp TIMESTAMPTZ, -- The timestamp of the message
@@ -78,8 +78,8 @@ $$;
 
 -- Count the number of contributions in a countdown for each day/hour zone
 CREATE FUNCTION heatmapData (
-    _countdownID INT, -- The countdown channel ID
-    _userID INT       -- The user ID to filter by (or NULL for all users)
+    _countdownID BIGINT, -- The countdown channel ID
+    _userID BIGINT       -- The user ID to filter by (or NULL for all users)
 )
 RETURNS TABLE (
     dow NUMERIC,    -- The day of the week (0-6 for Sunday-Saturday)
@@ -101,11 +101,11 @@ $$;
 
 -- Calculate each user's contribution percentage at each message in a countdown
 CREATE FUNCTION historicalContributorData (
-    _countdownID INT -- The countdown channel ID
+    _countdownID BIGINT -- The countdown channel ID
 )
 RETURNS TABLE (
     progress INT,    -- The current countdown progress (0-total)
-    userID INT,      -- The user ID
+    userID BIGINT,   -- The user ID
     percentage FLOAT -- The user's percentage of all contributions so far
 )
 LANGUAGE plpgsql AS $$
@@ -140,12 +140,12 @@ $$;
 
 -- Get the current leaderboard data for a countdown
 CREATE FUNCTION leaderboardData (
-    _countdownID INT, -- The countdown channel ID
-    _userID INT       -- The user ID to filter by (or NULL for all users)
+    _countdownID BIGINT, -- The countdown channel ID
+    _userID BIGINT       -- The user ID to filter by (or NULL for all users)
 )
 RETURNS TABLE (
     ranking BIGINT,       -- The user's (1-based) leaderboard ranking
-    userID INT,           -- The user ID
+    userID BIGINT,        -- The user ID
     total BIGINT,         -- The user's total leaderboard points
     contributions BIGINT, -- The user's number of contributions
     percentage FLOAT,     -- The user's percentage of all contributions
@@ -229,7 +229,7 @@ $$;
 
 -- Get the current progress for each message in a countdown
 CREATE FUNCTION progressData (
-    _countdownID INT -- The countdown channel ID
+    _countdownID BIGINT -- The countdown channel ID
 )
 RETURNS TABLE (
     _timestamp TIMESTAMPTZ, -- The timestamp of the message
@@ -247,7 +247,7 @@ $$;
 
 -- Get general progress-related statistics for a countdown
 CREATE PROCEDURE progressStats (
-    _countdownID IN INT,               -- The countdown channel ID
+    _countdownID IN BIGINT,            -- The countdown channel ID
     total OUT INT,                     -- The starting value
     current OUT INT,                   -- The current value
     progress OUT INT,                  -- The countdown progress (0-total)
@@ -310,8 +310,8 @@ $$;
 
 -- Calculate the number of contributions per period in a countdown
 CREATE FUNCTION speedData (
-    _countdownID INT, -- The countdown channel ID
-    hours INT         -- The period size, in hours
+    _countdownID BIGINT, -- The countdown channel ID
+    hours INT            -- The period size, in hours
 )
 RETURNS TABLE (
     periodStart TIMESTAMPTZ, -- The start of the period

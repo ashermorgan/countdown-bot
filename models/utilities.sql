@@ -16,9 +16,9 @@ CREATE TYPE addMessageResults AS ENUM (
 
 -- Validate and add a new countdown message
 CREATE PROCEDURE addMessage (
-    _messageID IN INT,           -- The message ID
-    _countdownID IN INT,         -- The message countdown ID
-    _userID IN INT,              -- The message user ID
+    _messageID IN BIGINT,        -- The message ID
+    _countdownID IN BIGINT,      -- The message countdown ID
+    _userID IN BIGINT,           -- The message user ID
     _value IN INT,               -- The message value
     _timestamp IN TIMESTAMPTZ,   -- The message timestamp
     result OUT addMessageResults -- The operation result
@@ -65,8 +65,8 @@ $$;
 
 -- Get the active prefixes for a server
 CREATE FUNCTION getPrefixes (
-    _serverID IN INT, -- The server ID
-    channelID IN INT  -- The channel ID
+    _serverID IN BIGINT, -- The server ID
+    channelID IN BIGINT  -- The channel ID
 )
 RETURNS TABLE (
     prefix VARCHAR(8) -- An active prefix
@@ -96,10 +96,10 @@ $$;
 
 -- Get the most relevant countdown to a server channel
 CREATE PROCEDURE getServerContextCountdown (
-    _serverID IN INT,     -- The server ID
-    channelID IN INT,     -- The channel ID
-    prefix IN VARCHAR(8), -- The prefix used to invoke the bot
-    countdownID OUT INT   -- The ID of the most relevant countdown
+    _serverID IN BIGINT,   -- The server ID
+    channelID IN BIGINT,   -- The channel ID
+    prefix IN VARCHAR(8),  -- The prefix used to invoke the bot
+    countdownID OUT BIGINT -- The ID of the most relevant countdown
 )
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -128,8 +128,8 @@ $$;
 
 -- Get the most relevant countdown to a user
 CREATE PROCEDURE getUserContextCountdown (
-    _userID IN INT,     -- The user ID
-    countdownID OUT INT -- The ID of the most relevant countdown
+    _userID IN BIGINT,     -- The user ID
+    countdownID OUT BIGINT -- The ID of the most relevant countdown
 )
 LANGUAGE plpgsql AS $$
 BEGIN
