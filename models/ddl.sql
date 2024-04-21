@@ -1,6 +1,7 @@
 DROP FUNCTION IF EXISTS speedData;
 DROP PROCEDURE IF EXISTS progressStats;
 DROP FUNCTION IF EXISTS progressData;
+DROP FUNCTION IF EXISTS leaderboardData;
 DROP FUNCTION IF EXISTS historicalContributorData;
 DROP FUNCTION IF EXISTS heatmapData;
 DROP FUNCTION IF EXISTS etaData;
@@ -73,13 +74,26 @@ END
 $$;
 
 CREATE FUNCTION contributorData (_countdownID INT)
-RETURNS TABLE (userID INT, contributions BIGINT)
+RETURNS TABLE (ranking BIGINT, userID INT, contributions BIGINT,
+    percentage FLOAT)
 LANGUAGE plpgsql AS $$
+DECLARE
+    progress INT;
 BEGIN
+    -- Get total from first message
+    SELECT count(messageID)
+        INTO progress
+        FROM messages
+        WHERE countdownID = _countdownID;
+
     RETURN QUERY
-    SELECT messages.userID, count(messages.messageID)
+    SELECT
+        rank() OVER (ORDER BY count(messageID) DESC) AS ranking,
+        messages.userID,
+        count(messageID) AS contributions,
+        (100.0 * count(messageID) / progress)::float AS percentage
     FROM messages
-    WHERE messages.countdownID = _countdownID
+    WHERE countdownID = _countdownID
     GROUP BY messages.userID;
 END
 $$;
@@ -142,7 +156,7 @@ BEGIN
     RETURN QUERY
     SELECT (total - value) AS progress, users.userID,
         (
-            SUM(CASE messages.userID WHEN users.userID THEN 1 ELSE 0 END)
+            sum(CASE messages.userID WHEN users.userID THEN 1 ELSE 0 END)
             OVER (PARTITION BY users.userID ORDER BY timestamp)
         )::float / (total - value + 1)
         FROM messages, (
@@ -151,6 +165,85 @@ BEGIN
             WHERE countdownID = _countdownID
         ) users
         WHERE countdownID = _countdownID;
+END
+$$;
+
+CREATE FUNCTION leaderboardData (_countdownID INT, _userID INT)
+RETURNS TABLE (ranking BIGINT, userID INT, total BIGINT, contributions BIGINT,
+    percentage FLOAT, r1 BIGINT, r2 BIGINT, r3 BIGINT, r4 BIGINT, r5 BIGINT,
+    r6 BIGINT, r7 BIGINT, r8 BIGINT, r9 BIGINT)
+LANGUAGE plpgsql AS $$
+DECLARE
+    total INT;
+    progress INT;
+BEGIN
+    -- Get total from first message
+    SELECT value
+        INTO total
+        FROM messages
+        WHERE countdownID = _countdownID
+        ORDER BY timestamp ASC
+        LIMIT 1;
+
+    -- Get progress from last message
+    SELECT total - value + 1
+        INTO progress
+        FROM messages
+        WHERE countdownID = _countdownID
+        ORDER BY timestamp DESC
+        LIMIT 1;
+
+    RETURN QUERY
+    SELECT * FROM (
+        -- Assign rankings based on total points
+        SELECT row_number() OVER (ORDER BY points.total DESC), *
+        FROM (
+            -- Count points and rule breakdowns for each user
+            SELECT categorizedMessages.userID,
+                sum(CASE rule
+                    WHEN 1 THEN 0    -- First
+                    WHEN 2 THEN 1000 -- 1000s
+                    WHEN 3 THEN 500  -- 1001s
+                    WHEN 4 THEN 200  -- 200s
+                    WHEN 5 THEN 100  -- 201s
+                    WHEN 6 THEN 100  -- 100s
+                    WHEN 7 THEN 50   -- 101s
+                    WHEN 8 THEN 12   -- Odds
+                    ELSE 10          -- Evens
+                END) AS total,
+                count(rule) AS contributions,
+                (100.0 * count(rule) / progress)::float AS percentage,
+                sum(CASE rule WHEN 1 THEN 1 ELSE 0 END) AS r1,
+                sum(CASE rule WHEN 2 THEN 1 ELSE 0 END) AS r2,
+                sum(CASE rule WHEN 3 THEN 1 ELSE 0 END) AS r3,
+                sum(CASE rule WHEN 4 THEN 1 ELSE 0 END) AS r4,
+                sum(CASE rule WHEN 5 THEN 1 ELSE 0 END) AS r5,
+                sum(CASE rule WHEN 6 THEN 1 ELSE 0 END) AS r6,
+                sum(CASE rule WHEN 7 THEN 1 ELSE 0 END) AS r7,
+                sum(CASE rule WHEN 8 THEN 1 ELSE 0 END) AS r8,
+                sum(CASE rule WHEN 9 THEN 1 ELSE 0 END) AS r9
+            FROM (
+                -- Get qualifying rule for each message
+                SELECT
+                    messages.userID,
+                    CASE TRUE
+                        WHEN value=total  THEN 1 -- First
+                        WHEN value%1000=0 THEN 2 -- 1000s
+                        WHEN value%1000=1 THEN 3 -- 1001s
+                        WHEN value%200=0  THEN 4 -- 200s
+                        WHEN value%200=1  THEN 5 -- 201s
+                        WHEN value%100=0  THEN 6 -- 100s
+                        WHEN value%100=1  THEN 7 -- 101s
+                        WHEN value%2=1    THEN 8 -- Odds
+                        ELSE 9                   -- Evens
+                    END AS rule
+                FROM messages
+                WHERE countdownID = _countdownID
+            ) categorizedMessages
+            GROUP BY categorizedMessages.userID
+        ) points
+    ) rankings
+    WHERE rankings.userID = _userID OR _userID IS NULL;
 END
 $$;
 
@@ -227,14 +320,16 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION speedData (_countdownID INT)
-RETURNS TABLE (date DATE, messages BIGINT)
+CREATE FUNCTION speedData (_countdownID INT, hours INT)
+RETURNS TABLE (periodStart TIMESTAMPTZ, messages BIGINT)
 LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
-    SELECT timestamp::date AS date, count(messageID)
+    SELECT to_timestamp((extract(epoch FROM timestamp) / hours / 60 / 60)::int
+        * hours * 60 * 60) AS periodStart,
+        count(messageID) as messages
     FROM messages
     WHERE countdownID = _countdownID
-    GROUP BY date;
+    GROUP BY periodStart;
 END
 $$;
