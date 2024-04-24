@@ -3,7 +3,7 @@ import discord
 import re
 
 # Import modules
-from .models import Countdown, Message, MessageIncorrectError, MessageNotAllowedError
+from .models import Countdown, Message
 
 
 
@@ -148,6 +148,29 @@ def getCountdown(session, id):
 
 
 
+def isCountdown(cur, id):
+    """
+    Determine whether a channel is a countdown
+
+    Parameters
+    ----------
+    cur : psycopg.cursor
+        The database cursor
+    id : int
+        The countdown ID
+
+    Returns
+    -------
+    bool
+        A boolean indicating whether the channel is a countdown
+    """
+
+    cur.execute("CALL isCountdown(%s, null);",
+        (ctx.channel.id,))
+    return cur.fetchone()[0]
+
+
+
 def getContextCountdown(session, ctx):
     """
     Get the most relevant countdown to a certain context
@@ -186,80 +209,74 @@ def getContextCountdown(session, ctx):
 
     raise CountdownNotFound()
 
+def getContextCountdown2(cur, ctx):
+    """
+    Get the most relevant countdown to a certain context
+
+    Parameters
+    ----------
+    cur : psycopg.cursor
+        The database cursor
+    ctx : discord.ext.commands.Context
+        The context
+
+    Returns
+    -------
+    countdownID
+        The countdown ID
+    """
+
+    if (isinstance(ctx.channel, discord.channel.TextChannel)):
+        # Channel inside a server
+        cur.execute("CALL getServerContextCountdown(%s, %s, %s, null);",
+            (ctx.channel.guild.id, ctx.channel.id, ctx.prefix))
+        return cur.fetchone()[0]
+
+    if (isinstance(ctx.channel, discord.channel.DMChannel)):
+        # DM with a user
+        cur.execute("CALL getUserContextCountdown(%s, null);",
+            (ctx.author.id,))
+        return cur.fetchone()[0]
+
+    return None
 
 
-def getPrefix(databaseSessionMaker, ctx, default):
+
+def getPrefix(conn, ctx, default):
     """
     Get the bot prefix for a certain context
 
     Parameters
     ----------
-    databaseSessionMaker : sqlalchemy.orm.sessionmaker
-        The database session maker
+    conn : psycopg.Connection
+        The database connection
     ctx : discord.ext.commands.Context
         The context
     default : list
         The default prefixes
     """
 
-    with databaseSessionMaker() as session:
-        # Countdown channel
-        countdown = getCountdown(session, ctx.channel.id)
-        if (countdown and len(countdown.prefixes) > 0):
-            return [x.value.lower() for x in countdown.prefixes]
-
-        # Server with countdown channels
-        if (isinstance(ctx.channel, discord.channel.TextChannel)):
-            serverCountdowns = session.query(Countdown).filter(Countdown.server_id == ctx.channel.guild.id).all()
-            # Get list of prefixes
-            prefixes = []
-            for countdown in serverCountdowns:
-                prefixes += [x.value.lower() for x in countdown.prefixes]
-            if (len(prefixes) > 0):
-                return list(dict.fromkeys(prefixes))
-
-        # Return default prefixes
-        return [x.lower() for x in default]
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM getPrefixes(%s, %s);",
+            (ctx.channel.guild.id, ctx.channel.id))
+        prefixes = cur.fetchall()
+        return [x[0] for x in prefixes] if prefixes else default
 
 
 
-def parseMessage(message):
-    """
-    Parses a countdown message from a Discord message
-
-    Parameters
-    ----------
-    message : discord.Message
-        The Discord message
-
-    Returns
-    -------
-    Message
-    """
-
-    return Message(
-        id = message.id,
-        countdown_id = message.channel.id,
-        author_id = message.author.id,
-        timestamp = message.created_at,
-        number = int(re.findall("^[0-9,]+", message.content)[0].replace(",","")),
-    )
-
-
-
-async def addMessage(countdown, rawMessage):
+async def addMessage(cur, message):
     """
     Parse a message and add it to a countdown
 
     Notes
     -----
-    If the message is invalid or incorrect, a reacted will be added accordingly
+    If the message is invalid or incorrect, a reaction will be added accordingly
 
     Parameters
     ----------
-    countdown : Countdown
-        The countdown
-    rawMessage : discord.Message
+    cur : psycopg.cursor
+        The database cursor
+    message : discord.Message
         The Discord message object
 
     Returns
@@ -268,32 +285,32 @@ async def addMessage(countdown, rawMessage):
         Whether the message was valid and added to the countdown
     """
 
-    try:
-        # Parse message
-        message = parseMessage(rawMessage)
+    # Parse message number
+    match = re.search("^[0-9,]+", message.content)
+    if not match: return False
+    number = int(match[0].replace(",", ""))
 
-        # Add message
-        countdown.addMessage(message)
+    # Attempt to add result
+    cur.execute("CALL addMessage(%s,%s,%s,%s,%s,null,null,null);", (
+        message.id, message.channel.id, message.author.id, number,
+        message.created_at
+    ))
+    result = cur.fetchone()
 
-        # Mark important messages
-        if (message.number in [x.number for x in countdown.reactions]):
-            for reaction in [x for x in countdown.reactions if x.number == message.number]:
-                try:
-                    await rawMessage.add_reaction(reaction.value)
-                except:
-                    pass
-        if (countdown.messages[0].number >= 500 and message.number % (countdown.messages[0].number // 50) == 0):
-            await rawMessage.pin()
-    except MessageNotAllowedError:
-        await rawMessage.add_reaction("⛔")
-        return False
-    except MessageIncorrectError:
-        await rawMessage.add_reaction("❌")
-        return False
-    except:
-        return False
-    else:
-        return True
+    # Process result
+    if result[0] == 'badNumber':
+        await message.add_reaction("❌")
+    if result[0] == 'badUser':
+        await message.add_reaction("⛔")
+    if result[1]:
+        await message.pin()
+    if result[2]:
+        cur.execute("SELECT * FROM getReactions(%s, %s);",
+            (message.channel.id, number))
+        for reaction in cur.fetchall():
+            await message.add_reaction(reaction[0])
+
+    return result[0] == 'good'
 
 
 
@@ -305,17 +322,24 @@ async def loadCountdown(bot, countdown):
     ----------
     bot : commands.Bot
         The bot to load messages with
+    cur : psycopg.cursor
+        The database cursor
     countdown : Countdown
         The countdown to load messages for
     """
 
-    # Clear countdown
-    countdown.messages = []
+    with bot.db_connection.cursor() as cur:
+        # Clear countdown
+        cur.execute("CALL clearCountdown(%s);", (countdown.id,))
 
-    # Get Discord messages
-    rawMessages = [message async for message in bot.get_channel(countdown.id).history(limit=10100)]
-    rawMessages.reverse()
+        # Get Discord messages
+        messages = [message async for message in
+                       bot.get_channel(countdown.id).history(limit=10100)]
+        messages.reverse()
 
-    # Add messages to countdown
-    for rawMessage in rawMessages:
-        await addMessage(countdown, rawMessage)
+        # Add messages to countdown
+        for message in messages:
+            await addMessage(cur, message)
+
+    # Commit changes
+    bot.db_connection.commit()

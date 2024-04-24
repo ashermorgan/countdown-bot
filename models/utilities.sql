@@ -3,6 +3,8 @@
 DROP FUNCTION IF EXISTS getReactions;
 DROP PROCEDURE IF EXISTS addMessage;
 DROP TYPE IF EXISTS addMessageResults;
+DROP PROCEDURE IF EXISTS clearCountdown;
+DROP PROCEDURE IF EXISTS isCountdown;
 DROP PROCEDURE IF EXISTS getUserContextCountdown;
 DROP PROCEDURE IF EXISTS getServerContextCountdown;
 DROP FUNCTION IF EXISTS getPrefixes;
@@ -89,6 +91,34 @@ BEGIN
 END
 $$;
 
+-- Determine if a channel is a countdown
+CREATE PROCEDURE isCountdown (
+    channelID IN BIGINT, -- The channel ID
+    result OUT BOOLEAN   -- Whether the channel is a countdown
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT EXISTS(
+        SELECT 1
+        FROM countdowns
+        WHERE countdownID = channelID
+    ) INTO result;
+END
+$$;
+
+-- Delete all messages in a countdown
+CREATE PROCEDURE clearCountdown (
+    _countdownID IN BIGINT -- The countdown channel ID
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE
+    FROM messages
+    WHERE countdownID = _countdownID;
+END
+$$;
+
+
 -- Possible results of the addMessage procedure
 CREATE TYPE addMessageResults AS ENUM (
     'badCountdown', -- Countdown doesn't exist or has ended
@@ -126,6 +156,10 @@ BEGIN
     ORDER BY messages.value ASC
     LIMIT 1;
 
+    -- Initialize pin and reactions
+    pin := FALSE;
+    reactions := FALSE;
+
     -- Validate message
     IF lastMessage.countdownID IS NULL OR lastMessage.value = 0 THEN
         -- Countdown doesn't exist or has ended
@@ -157,8 +191,6 @@ BEGIN
         -- Check if message should be pinned
         IF total >= 500 AND _value % (total / 50) = 0 AND _value != 0 THEN
             pin := TRUE;
-        ELSE
-            pin := FALSE;
         END IF;
 
         -- Check if message has custom reactions
@@ -166,8 +198,6 @@ BEGIN
             WHERE countdownID = _countdownID AND number = _value
         ) THEN
             reactions := TRUE;
-        ELSE
-            reactions := FALSE;
         END IF;
     END IF;
 END

@@ -24,7 +24,7 @@ class CountdownBot(commands.Bot):
         intents.message_content = True
 
         # Initialize bot
-        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes), intents=intents)
+        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.db_connection, ctx, self.prefixes), intents=intents)
 
 
 
@@ -63,11 +63,9 @@ class CountdownBot(commands.Bot):
             await obj.channel.send(embed=embed)
 
         # Parse countdown message
-        with self.databaseSessionMaker() as session:
-            countdown = getCountdown(session, obj.channel.id)
-            if (countdown):
-                # Add message to countdown and commit changes
-                if (await addMessage(countdown, obj)): session.commit()
+        with self.db_connection.cursor() as cur:
+            if (await addMessage(cur, obj)):
+                self.db_connection.commit()
 
         # Run commands
         try:
