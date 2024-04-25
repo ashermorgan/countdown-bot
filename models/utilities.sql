@@ -3,6 +3,8 @@
 DROP FUNCTION IF EXISTS getReactions;
 DROP PROCEDURE IF EXISTS addMessage;
 DROP TYPE IF EXISTS addMessageResults;
+DROP PROCEDURE IF EXISTS deleteCountdown;
+DROP PROCEDURE IF EXISTS createCountdown;
 DROP PROCEDURE IF EXISTS clearCountdown;
 DROP PROCEDURE IF EXISTS isCountdown;
 DROP PROCEDURE IF EXISTS getUserContextCountdown;
@@ -118,6 +120,32 @@ BEGIN
 END
 $$;
 
+-- Create a new countdown
+CREATE PROCEDURE createCountdown (
+    _countdownID IN BIGINT, -- The countdown channel ID
+    _serverID IN BIGINT,    -- The server ID
+    prefix IN VARCHAR(8)    -- The initial prefix
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    INSERT INTO countdowns (countdownID, serverID)
+    VALUES (_countdownID, _serverID);
+    INSERT INTO prefixes (countdownID, value)
+    VALUES (_countdownID, prefix);
+END
+$$;
+
+-- Delete a countdown
+CREATE PROCEDURE deleteCountdown (
+    _countdownID IN BIGINT -- The countdown channel ID
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+END
+$$;
 
 -- Possible results of the addMessage procedure
 CREATE TYPE addMessageResults AS ENUM (

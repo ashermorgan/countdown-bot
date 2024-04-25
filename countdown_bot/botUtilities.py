@@ -166,7 +166,7 @@ def isCountdown(cur, id):
     """
 
     cur.execute("CALL isCountdown(%s, null);",
-        (ctx.channel.id,))
+        (id,))
     return cur.fetchone()[0]
 
 
@@ -324,17 +324,17 @@ async def loadCountdown(bot, countdown):
         The bot to load messages with
     cur : psycopg.cursor
         The database cursor
-    countdown : Countdown
-        The countdown to load messages for
+    countdown : int
+        The ID of the countdown to load messages for
     """
 
     with bot.db_connection.cursor() as cur:
         # Clear countdown
-        cur.execute("CALL clearCountdown(%s);", (countdown.id,))
+        cur.execute("CALL clearCountdown(%s);", (countdown,))
 
         # Get Discord messages
         messages = [message async for message in
-                       bot.get_channel(countdown.id).history(limit=10100)]
+                       bot.get_channel(countdown).history(limit=10100)]
         messages.reverse()
 
         # Add messages to countdown

@@ -29,8 +29,8 @@ class CountdownBot(commands.Bot):
 
 
     async def setup_hook(self):
+        await self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker, self.db_connection))
         await self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker))
-        await self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker))
 
 
 
@@ -80,6 +80,9 @@ class CountdownBot(commands.Bot):
 
 
     async def on_command_error(self, ctx, error):
+        # Rollback database transaction
+        self.db_connection.rollback()
+
         # Send error embed
         embed=discord.Embed(title=":warning: Error", description=str(error), color=COLORS["error"])
         if (isinstance(error, commands.CommandNotFound)):

@@ -3,15 +3,16 @@ import discord
 from discord.ext import commands
 
 # Import modules
-from .botUtilities import COLORS, CommandError, getContextCountdown, getCountdown, loadCountdown
+from .botUtilities import COLORS, CommandError, isCountdown, getContextCountdown, getCountdown, loadCountdown
 from .models import Countdown, Prefix, Reaction
 
 
 
 class Utilities(commands.Cog):
-    def __init__(self, bot, databaseSessionMaker):
+    def __init__(self, bot, databaseSessionMaker, db_connection):
         self.bot = bot
         self.databaseSessionMaker = databaseSessionMaker
+        self.db_connection = db_connection
         self.bot.remove_command("help")
 
 
@@ -22,9 +23,9 @@ class Utilities(commands.Cog):
         Turns a channel into a countdown
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Check if channel is already a countdown
-            if (getCountdown(session, ctx.channel.id)):
+            if (isCountdown(cur, ctx.channel.id)):
                 raise CommandError("This channel is already a countdown")
 
             # Check if channel is a DM
@@ -36,14 +37,8 @@ class Utilities(commands.Cog):
                 raise CommandError("You must be an administrator to turn a channel into a countdown")
 
             # Create countdown
-            countdown = Countdown(
-                id = ctx.channel.id,
-                server_id = ctx.channel.guild.id,
-                timezone = 0,
-                prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in self.bot.prefixes],
-                reactions = [],
-                messages = [],
-            )
+            cur.execute("CALL createCountdown(%s, %s, %s);",
+                (ctx.channel.id, ctx.channel.guild.id, self.bot.prefixes[0]))
 
             # Send initial response
             self.bot.logger.info(f"Activated {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id}) as a countdown")
@@ -51,9 +46,8 @@ class Utilities(commands.Cog):
             msg = await ctx.send(embed=embed)
 
             # Load countdown
-            await loadCountdown(self.bot, countdown)
-            session.add(countdown)
-            session.commit()
+            await loadCountdown(self.bot, ctx.channel.id)
+            self.db_connection.commit()
 
             # Send final response
             embed = discord.Embed(title=":white_check_mark: Countdown Activated", description="This channel is now a countdown\nYou may start counting!", color=COLORS["embed"])
@@ -136,10 +130,9 @@ class Utilities(commands.Cog):
         Deactivates a countdown channel
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Check if channel isn't a countdown
-            countdown = getCountdown(session, ctx.channel.id)
-            if (not countdown):
+            if (not isCountdown(cur, ctx.channel.id)):
                 raise CommandError("This channel isn't a countdown")
 
             # Check if user isn't authorized
@@ -147,8 +140,9 @@ class Utilities(commands.Cog):
                 raise CommandError("You must be an administrator to deactivate a countdown channel")
 
             # Delete countdown
-            session.delete(countdown)
-            session.commit()
+            cur.execute("CALL deleteCountdown(%s);",
+                (ctx.channel.id,))
+            self.db_connection.commit()
 
             # Send response
             self.bot.logger.info(f"Deactivated {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id}) as a countdown")
@@ -402,20 +396,20 @@ class Utilities(commands.Cog):
         Reloads the countdown cache
         """
 
-        with self.databaseSessionMaker() as session:
-            countdown = getCountdown(session, ctx.channel.id)
-            if (countdown):
-                # Send initial response
-                embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting", color=COLORS["embed"])
-                msg = await ctx.channel.send(embed=embed)
-
-                # Reload messages
-                await loadCountdown(self.bot, countdown)
-                session.commit()
-
-                # Send final response
-                self.bot.logger.info(f"Reloaded messages from {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id})")
-                embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!", color=COLORS["embed"])
-                await msg.edit(embed=embed)
-            else:
+        with self.db_connection.cursor() as cur:
+            # Check if channel isn't a countdown
+            if (not isCountdown(cur, ctx.channel.id)):
                 raise CommandError("Countdown not found\nThis command must be used in a countdown channel")
+
+            # Send initial response
+            embed = discord.Embed(title=":clock3: Reloading Countdown Cache", description="Please wait to continue counting", color=COLORS["embed"])
+            msg = await ctx.channel.send(embed=embed)
+
+            # Reload messages
+            await loadCountdown(self.bot, ctx.channel.id)
+            self.db_connection.commit()
+
+            # Send final response
+            self.bot.logger.info(f"Reloaded messages from {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id})")
+            embed = discord.Embed(title=":white_check_mark: Countdown Cache Reloaded", description="Done! You may continue counting!", color=COLORS["embed"])
+            await msg.edit(embed=embed)
