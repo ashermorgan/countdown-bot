@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 
 # Import modules
-from .botUtilities import COLORS, CommandError, isCountdown, getContextCountdown, getCountdown, loadCountdown
+from .botUtilities import COLORS, CommandError, isCountdown, getContextCountdown, getCountdown, loadCountdown, getContextCountdown2, CountdownNotFound
 from .models import Countdown, Prefix, Reaction
 
 
@@ -68,56 +68,67 @@ class Utilities(commands.Cog):
         if (not isinstance(ctx.channel, discord.channel.TextChannel)):
             raise CommandError("This command must be run in a countdown channel or a server with a countdown channel")
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
+            countdown = getContextCountdown2(cur, ctx)
+
+            if not countdown:
+                raise CountdownNotFound()
             
             # Get / set settings
             if (key is None):
-                embed.description = f"**Countdown Channel:** <#{countdown.id}>\n"
-                embed.description += f"**Command Prefixes:** `{'`, `'.join([x.value for x in countdown.prefixes])}`\n"
-                embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
-                if (len(countdown.reactions) == 0):
+                embed.description = f"**Countdown Channel:** <#{countdown}>\n"
+
+                cur.execute("SELECT * FROM getPrefixes(NULL, %s);", (countdown,))
+                prefixes = [x[0] for x in cur.fetchall()]
+                embed.description += f"**Command Prefixes:** `{'`, `'.join(prefixes)}`\n"
+
+                # embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
+
+                cur.execute("SELECT * FROM getReactions(%s, NULL);", (countdown,))
+                reactions = cur.fetchall()
+                if (len(reactions) == 0):
                     embed.description += f"**Reactions:** none\n"
                 else:
                     embed.description += f"**Reactions:**\n"
-                for number in list(dict.fromkeys([x.number for x in countdown.reactions])):
-                    embed.description += f"**-** #{number}: {', '.join([x.value for x in countdown.reactions if x.number == number])}\n"
+                for number in reversed(list(set([x[1] for x in reactions]))):
+                    embed.description += f"**-** #{number}: {', '.join([x[0] for x in reactions if x[1] == number])}\n"
+
                 embed.description += f"\nUse `{ctx.prefix}help config` to view more information about settings\n"
                 embed.description += f"Use `{ctx.prefix}config <key> <value>` to modify settings\n"
             elif (not ctx.message.author.guild_permissions.administrator):
                 raise CommandError("You must be an administrator to modify settings")
             elif (len(args) == 0):
                 raise CommandError("Please provide a value for the setting")
-            elif (key in ["tz", "timezone"]):
-                try:
-                    countdown.timezone = float(args[0])
-                except:
-                    raise CommandError(f"Invalid timezone: `{args[0]}`")
-                else:
-                    embed.description = f"Timezone set to {countdown.getTimezone()}"
+            # elif (key in ["tz", "timezone"]):
+            #     try:
+            #         countdown.timezone = float(args[0])
+            #     except:
+            #         raise CommandError(f"Invalid timezone: `{args[0]}`")
+            #     else:
+            #         embed.description = f"Timezone set to {countdown.getTimezone()}"
             elif (key in ["prefix", "prefixes"]):
-                countdown.prefixes = [Prefix(countdown_id=ctx.channel.id, value=x) for x in args]
+                cur.execute("CALL setPrefixes(%s, %s);", (countdown, list(args)))
                 embed.description = f"Prefixes updated"
             elif (key in ["react"]):
                 try:
                     number = int(args[0])
-                    if (number < 0):
-                        raise CommandError("Number must be greater than zero")
-                    elif (len(args) == 1):
-                        countdown.reactions = [x for x in countdown.reactions if x.number != number]
-                        embed.description = f"Removed reactions for #{number}"
-                    else:
-                        countdown.reactions = [x for x in countdown.reactions if x.number != number]
-                        countdown.reactions += [Reaction(countdown_id=countdown.id, number=number, value=x) for x in args[1:]]
-                        embed.description = f"Updated reactions for #{number}"
                 except:
                     raise CommandError(f"Invalid number: `{args[0]}`")
+                if (number < 0):
+                    raise CommandError("Number must be greater than zero")
+                print(list(args[1:]))
+                cur.execute("CALL setReactions(%s, %s, %s);",
+                    (countdown, number, list(args[1:])))
+                if (len(args) == 1):
+                    embed.description = f"Removed reactions for #{number}"
+                else:
+                    embed.description = f"Updated reactions for #{number}"
             else:
                 raise CommandError(f"Setting not found: `{key}`")
 
             # Save changes
-            session.commit()
+            self.db_connection.commit()
 
         # Send embed
         await ctx.send(embed=embed)

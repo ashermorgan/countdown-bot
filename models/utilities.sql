@@ -1,5 +1,6 @@
 -- countdown-bot utility procedures
 
+DROP PROCEDURE IF EXISTS setReactions;
 DROP FUNCTION IF EXISTS getReactions;
 DROP PROCEDURE IF EXISTS addMessage;
 DROP TYPE IF EXISTS addMessageResults;
@@ -9,6 +10,7 @@ DROP PROCEDURE IF EXISTS clearCountdown;
 DROP PROCEDURE IF EXISTS isCountdown;
 DROP PROCEDURE IF EXISTS getUserContextCountdown;
 DROP PROCEDURE IF EXISTS getServerContextCountdown;
+DROP PROCEDURE IF EXISTS setPrefixes;
 DROP FUNCTION IF EXISTS getPrefixes;
 
 -- Get the active prefixes for a server
@@ -39,6 +41,22 @@ BEGIN
         JOIN countdowns ON countdowns.countdownID = prefixes.countdownID
         WHERE countdowns.serverID = _serverID;
     END IF;
+END
+$$;
+
+-- Set the command prefixes used by a countdown channel
+CREATE PROCEDURE setPrefixes (
+    _countdownID BIGINT,   -- The countdown channel ID
+    _prefixes VARCHAR(8)[] -- The prefix values
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM prefixes
+    WHERE countdownID = _countdownID;
+
+    INSERT INTO prefixes (countdownID, value)
+    SELECT _countdownID, *
+    FROM unnest(_prefixes);
 END
 $$;
 
@@ -234,16 +252,36 @@ $$;
 -- Get the custom reactions for a number in a countdown
 CREATE FUNCTION getReactions (
     _countdownID BIGINT, -- The countdown channel ID
-    _number INT          -- The number
+    _number INT          -- The number (or NULL for all numbers)
 )
 RETURNS TABLE (
-    value CHAR -- A custom reaction
+    value VARCHAR(8), -- A custom reaction
+    number INT        -- The number
 )
 LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY
-    SELECT reactions.value
+    SELECT reactions.value, reactions.number
     FROM reactions
+    WHERE countdownID = _countdownID
+        AND (reactions.number = _number OR _number IS NULL)
+    ORDER BY reactions.number DESC;
+END
+$$;
+
+-- Set the custom reactions for a number in a countdown
+CREATE PROCEDURE setReactions (
+    _countdownID BIGINT,    -- The countdown channel ID
+    _number INT,            -- The number
+    _reactions VARCHAR(8)[] -- The custom reactions
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM reactions
     WHERE countdownID = _countdownID AND number = _number;
+
+    INSERT INTO reactions (countdownID, number, value)
+    SELECT _countdownID, _number, *
+    FROM unnest(_reactions);
 END
 $$;

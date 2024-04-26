@@ -37,8 +37,8 @@ CREATE table prefixes (
 CREATE table reactions (
     prefixID SERIAL PRIMARY KEY, -- The reaction ID
     countdownID BIGINT NOT NULL, -- The countdown ID
-    number INT NOT NULL,   -- The prefix
-    value CHAR NOT NULL,   -- The reaction
+    number INT NOT NULL,         -- The prefix
+    value VARCHAR(8) NOT NULL,   -- The reaction
     FOREIGN KEY (countdownID)
         REFERENCES countdowns(countdownID)
         ON DELETE CASCADE
