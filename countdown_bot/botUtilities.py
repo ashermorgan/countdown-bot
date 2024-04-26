@@ -167,7 +167,7 @@ def isCountdown(cur, id):
 
     cur.execute("CALL isCountdown(%s, null);",
         (id,))
-    return cur.fetchone()[0]
+    return cur.fetchone()["result"]
 
 
 
@@ -230,13 +230,13 @@ def getContextCountdown2(cur, ctx):
         # Channel inside a server
         cur.execute("CALL getServerContextCountdown(%s, %s, %s, null);",
             (ctx.channel.guild.id, ctx.channel.id, ctx.prefix))
-        return cur.fetchone()[0]
+        return cur.fetchone()["countdownid"]
 
     if (isinstance(ctx.channel, discord.channel.DMChannel)):
         # DM with a user
         cur.execute("CALL getUserContextCountdown(%s, null);",
             (ctx.author.id,))
-        return cur.fetchone()[0]
+        return cur.fetchone()["countdownid"]
 
     return None
 
@@ -260,7 +260,7 @@ def getPrefix(conn, ctx, default):
         cur.execute("SELECT * FROM getPrefixes(%s, %s);",
             (ctx.channel.guild.id, ctx.channel.id))
         prefixes = cur.fetchall()
-        return [x[0] for x in prefixes] if prefixes else default
+        return [x["prefix"] for x in prefixes] if prefixes else default
 
 
 
@@ -298,19 +298,19 @@ async def addMessage(cur, message):
     result = cur.fetchone()
 
     # Process result
-    if result[0] == 'badNumber':
+    if result["result"] == 'badNumber':
         await message.add_reaction("❌")
-    if result[0] == 'badUser':
+    if result["result"] == 'badUser':
         await message.add_reaction("⛔")
-    if result[1]:
+    if result["pin"]:
         await message.pin()
-    if result[2]:
+    if result["reactions"]:
         cur.execute("SELECT * FROM getReactions(%s, %s);",
             (message.channel.id, number))
         for reaction in cur.fetchall():
-            await message.add_reaction(reaction[0])
+            await message.add_reaction(reaction["value"])
 
-    return result[0] == 'good'
+    return result["result"] == 'good'
 
 
 

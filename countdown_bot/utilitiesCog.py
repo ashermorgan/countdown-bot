@@ -80,7 +80,7 @@ class Utilities(commands.Cog):
                 embed.description = f"**Countdown Channel:** <#{countdown}>\n"
 
                 cur.execute("SELECT * FROM getPrefixes(NULL, %s);", (countdown,))
-                prefixes = [x[0] for x in cur.fetchall()]
+                prefixes = [x["prefix"] for x in cur.fetchall()]
                 embed.description += f"**Command Prefixes:** `{'`, `'.join(prefixes)}`\n"
 
                 # embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
@@ -91,8 +91,8 @@ class Utilities(commands.Cog):
                     embed.description += f"**Reactions:** none\n"
                 else:
                     embed.description += f"**Reactions:**\n"
-                for number in reversed(list(set([x[1] for x in reactions]))):
-                    embed.description += f"**-** #{number}: {', '.join([x[0] for x in reactions if x[1] == number])}\n"
+                for number in reversed(list(set([x["number"] for x in reactions]))):
+                    embed.description += f"**-** #{number}: {', '.join([x["value"] for x in reactions if x["number"] == number])}\n"
 
                 embed.description += f"\nUse `{ctx.prefix}help config` to view more information about settings\n"
                 embed.description += f"Use `{ctx.prefix}config <key> <value>` to modify settings\n"
@@ -117,7 +117,6 @@ class Utilities(commands.Cog):
                     raise CommandError(f"Invalid number: `{args[0]}`")
                 if (number < 0):
                     raise CommandError("Number must be greater than zero")
-                print(list(args[1:]))
                 cur.execute("CALL setReactions(%s, %s, %s);",
                     (countdown, number, list(args[1:])))
                 if (len(args) == 1):

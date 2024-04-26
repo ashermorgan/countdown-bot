@@ -22,7 +22,7 @@ logging.basicConfig(
 
 # Connect to database
 databaseSessionMaker = getSessionMaker(os.environ.get("DATABASE"))
-db_connection = psycopg.connect(os.environ.get("DATABASE2"))
+db_connection = psycopg.connect(os.environ.get("DATABASE2"), row_factory=psycopg.rows.dict_row)
 
 # Run bot
 bot = CountdownBot(databaseSessionMaker, [os.environ.get("PREFIX", "!")], db_connection)
