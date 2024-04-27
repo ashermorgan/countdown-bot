@@ -30,7 +30,7 @@ class CountdownBot(commands.Bot):
 
     async def setup_hook(self):
         await self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker, self.db_connection))
-        await self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker))
+        await self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker, self.db_connection))
 
 
 

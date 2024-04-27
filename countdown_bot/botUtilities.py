@@ -96,32 +96,8 @@ async def getContributor(bot, countdown, text):
         If a matching contributor cannot be found
     """
 
-    # Get countdown contributors
-    contributors = [x["author"] for x in countdown.contributors()]
-
-    # Get user from mention
-    if (re.match("^<@!\d+>$", text) and int(text[3:-1]) in contributors):
-        return int(text[3:-1])
-    elif (re.match("^<@!\d+>$", text)):
-        raise ContributorNotFound(text)
-
-    # Get user from username
-    for contributor in contributors:
-        try:
-            username = await getUsername(bot, contributor)
-        except:
-            continue
-        if (username.lower().startswith(text.lower())):
-            return contributor
-
-    # Get user from nickname
-    for contributor in contributors:
-        try:
-            nickname = await getNickname(bot, countdown.server_id, contributor)
-        except:
-            continue
-        if (nickname.lower().startswith(text.lower())):
-            return contributor
+    if (re.match("^<@\d+>$", text)):
+        return int(text[2:-1])
 
     raise ContributorNotFound(text)
 
@@ -258,7 +234,7 @@ def getPrefix(conn, ctx, default):
 
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM getPrefixes(%s, %s);",
-            (ctx.channel.guild.id, ctx.channel.id))
+            (ctx.channel.guild.id if ctx.channel.guild else None, ctx.channel.id))
         prefixes = cur.fetchall()
         return [x["prefix"] for x in prefixes] if prefixes else default
 

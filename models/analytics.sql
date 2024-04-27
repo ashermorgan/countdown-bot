@@ -66,12 +66,12 @@ BEGIN
     RETURN QUERY
     SELECT
         timestamp,
-        to_timestamp(startTime + value *
+        to_timestamp(startTime + total *
             (extract(epoch FROM timestamp) - startTime) / (total - value)
         ) AS eta
     FROM messages
     WHERE countdownID = _countdownID
-        AND extract(epoch FROM timestamp) != startTime
+        AND value != total
     ORDER BY messageID;
 END
 $$;
@@ -298,7 +298,10 @@ BEGIN
     -- Calculate longestBreak, longestBreakStart, and longestBreakEnd
     SELECT
         timestamp,
-        LEAD(timestamp, 1, NOW()) OVER (ORDER BY timestamp) - timestamp AS delta
+        CASE
+            WHEN value = 0 THEN '0'
+            ELSE LEAD(timestamp, 1, NOW()) OVER (ORDER BY timestamp) - timestamp
+        END AS delta
     INTO longestBreakStart, longestBreak
     FROM messages
     WHERE messages.countdownID = _countdownID

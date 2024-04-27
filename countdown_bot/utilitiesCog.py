@@ -260,13 +260,11 @@ class Utilities(commands.Cog):
             "eta":
                 "**Name:** eta\n" \
                 "**Description:** Shows information about the estimated completion date\n" \
-                f"**Usage:** `{prefixes[0]}eta|e [<period>]`\n" \
+                f"**Usage:** `{prefixes[0]}eta|e`\n" \
                 "**Aliases:** `e`\n" \
-                "**Arguments:**\n" \
-                "**-** `<period>`: The size of the period in hours (the default is 24 hours)\n" \
+                "**Arguments:** none\n" \
                 "**Examples:**\n" \
                 f"**-** `{prefixes[0]}eta`\n" \
-                f"**-** `{prefixes[0]}eta 48`\n" \
                 "**Notes:** none\n",
             "heatmap":
                 "**Name:** heatmap\n" \
@@ -274,11 +272,10 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}heatmap [<user>]`\n" \
                 "**Aliases:** none\n" \
                 "**Arguments:**\n" \
-                "**-** `<user>`: The username or nickname of the user to view heatmap information about. If no value is supplied, the general heatmap will be shown\n" \
+                "**-** `<user>`: The user to view heatmap information about. If no value is supplied, the general heatmap will be shown\n" \
                 "**Examples:**\n" \
                 f"**-** `{prefixes[0]}heatmap`\n" \
                 f"**-** `{prefixes[0]}heatmap @Alice`\n" \
-                f"**-** `{prefixes[0]}heatmap Bob`\n" \
                 "**Notes:** none\n",
             "help":
                 "**Name:** help\n" \
@@ -297,12 +294,10 @@ class Utilities(commands.Cog):
                 f"**Usage:** `{prefixes[0]}leaderboard|l [<user>]`\n" \
                 "**Aliases:** `l`\n" \
                 "**Arguments:**\n" \
-                "**-** `<user>`: The rank, username, or nickname of the user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown\n" \
+                "**-** `<user>`: The user to view leaderboard information about. If no value is supplied, the whole leaderboard will be shown\n" \
                 "**Examples:**\n" \
                 f"**-** `{prefixes[0]}leaderboard`\n" \
-                f"**-** `{prefixes[0]}leaderboard 1`\n" \
                 f"**-** `{prefixes[0]}leaderboard @Alice`\n" \
-                f"**-** `{prefixes[0]}leaderboard Bob`\n" \
                 "**Notes:** The leaderboard embed will only show the top 20 contributors\n",
             "ping":
                 "**Name:** ping\n" \

@@ -29,16 +29,16 @@ def getSessionMaker(location):
 
 # The rules for awarding leaderboard points
 POINT_RULES = {
-    "1000s": 1000,
-    "1001s": 500,
-    "200s": 200,
-    "201s": 100,
-    "100s": 100,
-    "101s": 50,
-    "Prime Numbers": 15,
-    "Odd Numbers": 12,
-    "Even Numbers": 10,
-    "First Number": 0,
+    "r1": ("First Number", 0),
+    "r2": ("1000s", 1000),
+    "r3": ("1001s", 500),
+    "r4": ("200s", 200),
+    "r5": ("201s", 100),
+    "r6": ("100s", 100),
+    "r7": ("101s", 50),
+    # "r8": ("Prime Numbers", 15),
+    "r8": ("Odd Numbers", 12),
+    "r9": ("Even Numbers", 10),
 }
 
 
