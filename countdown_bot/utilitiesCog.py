@@ -77,11 +77,16 @@ class Utilities(commands.Cog):
             if (key is None):
                 embed.description = f"**Countdown Channel:** <#{countdown}>\n"
 
-                cur.execute("SELECT * FROM getPrefixes(NULL, %s);", (countdown,))
+                cur.execute("SELECT * from getprefixes(null, %s);", (countdown,))
                 prefixes = [x["prefix"] for x in cur.fetchall()]
                 embed.description += f"**Command Prefixes:** `{'`, `'.join(prefixes)}`\n"
 
-                # embed.description += f"**Countdown Timezone:** {countdown.getTimezone()}\n"
+                cur.execute("CALL getTimezone(%s, null);", (countdown,))
+                timezone = cur.fetchone()["_timezone"]
+                if (timezone >= 0):
+                    embed.description += f"**Countdown Timezone:** UTC+{timezone:.2f}\n"
+                else:
+                    embed.description += f"**Countdown Timezone:** UTC-{abs(timezone):.2f}\n"
 
                 cur.execute("SELECT * FROM getReactions(%s, NULL);", (countdown,))
                 reactions = cur.fetchall()
@@ -98,13 +103,17 @@ class Utilities(commands.Cog):
                 raise CommandError("You must be an administrator to modify settings")
             elif (len(args) == 0):
                 raise CommandError("Please provide a value for the setting")
-            # elif (key in ["tz", "timezone"]):
-            #     try:
-            #         countdown.timezone = float(args[0])
-            #     except:
-            #         raise CommandError(f"Invalid timezone: `{args[0]}`")
-            #     else:
-            #         embed.description = f"Timezone set to {countdown.getTimezone()}"
+            elif (key in ["tz", "timezone"]):
+                try:
+                    timezone = float(args[0])
+                except:
+                    raise CommandError(f"Invalid timezone: `{args[0]}`")
+                else:
+                    cur.execute("CALL setTimezone(%s, %s);", (countdown, timezone))
+                    if (timezone >= 0):
+                        embed.description = f"Timezone set to UTC+{timezone:.2f}\n"
+                    else:
+                        embed.description = f"Timezone set to UTC-{abs(timezone):.2f}\n"
             elif (key in ["prefix", "prefixes"]):
                 cur.execute("CALL setPrefixes(%s, %s);", (countdown, list(args)))
                 embed.description = f"Prefixes updated"

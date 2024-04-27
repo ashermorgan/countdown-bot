@@ -1,5 +1,7 @@
 -- countdown-bot utility procedures
 
+DROP PROCEDURE IF EXISTS setTimezone;
+DROP PROCEDURE IF EXISTS getTimezone;
 DROP PROCEDURE IF EXISTS setReactions;
 DROP FUNCTION IF EXISTS getReactions;
 DROP PROCEDURE IF EXISTS addMessage;
@@ -283,5 +285,33 @@ BEGIN
     INSERT INTO reactions (countdownID, number, value)
     SELECT _countdownID, _number, *
     FROM unnest(_reactions);
+END
+$$;
+
+-- Get the timezone of a countdown
+CREATE PROCEDURE getTimezone (
+    _countdownID IN BIGINT, -- The countdown channel ID
+    _timezone OUT DECIMAL   -- The timezone as a UTC offest
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT extract(minute FROM timezone) / 60
+    INTO _timezone
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+END
+$$;
+
+-- Set the timezone of a countdown
+CREATE PROCEDURE setTimezone (
+    _countdownID IN BIGINT, -- The countdown channel ID
+    _timezone IN FLOAT      -- The timezone as a UTC offest
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE countdowns
+    SET timezone = make_interval(0,0,0,0, floor(_timezone)::integer,
+        (_timezone * 60)::integer % 60)
+    WHERE countdownID = _countdownID;
 END
 $$;

@@ -1,5 +1,5 @@
 # Import dependencies
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import discord
 from discord.ext import commands
 from matplotlib import pyplot as plt
@@ -161,6 +161,8 @@ class Analytics(commands.Cog):
             embed=discord.Embed(title=":calendar: Countdown Estimated Completion Date", color=COLORS["embed"])
 
             # Get stats
+            cur.execute("CALL progressStats(%s,null,null,null,null,null,null,null,null,null,null,null,null);", (countdown,))
+            stats = cur.fetchone()
             cur.execute("SELECT * FROM etaData(%s);", (countdown,))
             data = cur.fetchall()
 
@@ -190,17 +192,15 @@ class Analytics(commands.Cog):
             maxDate = [x["_timestamp"] for x in data if x["eta"] == maxEta][0]
             minEta = min([x["eta"] for x in data])
             minDate = [x["_timestamp"] for x in data if x["eta"] == minEta][0]
-            end = data[-1]["eta"] # + timedelta(hours=countdown.timezone)
-            endDiff = data[-1]["eta"] - datetime.now(timezone.utc)
 
             # Add content to embed
             embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
             embed.description += f"**Maximum Estimate:** {maxEta.date()} (on {maxDate.date()})\n"
             embed.description += f"**Minimum Estimate:** {minEta.date()} (on {minDate.date()})\n"
-            if endDiff < timedelta(seconds=0):
-                embed.description += f"**Actual Completion Date:** {end.date()} ({(-1 * endDiff).days:,} days ago)\n"
+            if stats['endage'] > timedelta(seconds=0):
+                embed.description += f"**Actual Completion Date:** {stats['endtime'].date()} ({stats['endage'].days:,} days ago)\n"
             else:
-                embed.description += f"**Current Estimate:** {end.date()} ({endDiff.days:,} days from now)\n"
+                embed.description += f"**Current Estimate:** {stats['endtime'].date()} ({(-1 * stats['endage']).days:,} days from now)\n"
             embed.set_image(url="attachment://image.png")
 
         # Send embed
@@ -243,6 +243,9 @@ class Analytics(commands.Cog):
                 userID = await getContributor(self.bot, countdown, user)
 
             # Get heatmap data
+            cur.execute("CALL heatmapStats(%s, null, null);",
+                (countdown,))
+            stats = cur.fetchone()
             cur.execute("SELECT * FROM heatmapData(%s, %s);",
                 (countdown, userID))
             data = cur.fetchall()
@@ -285,8 +288,8 @@ class Analytics(commands.Cog):
             maxValue = np.max(matrix)
             maxWeekday = np.where(matrix == maxValue)[0][0]
             maxHour = np.where(matrix == maxValue)[1][0]
-            currentWeekday = (datetime.utcnow().weekday() + 1) % 7 # ((datetime.utcnow() + timedelta(hours=countdown.timezone)).weekday() + 1) % 7
-            currentHour = datetime.utcnow().hour # (datetime.utcnow() + timedelta(hours=countdown.timezone)).hour
+            currentWeekday = int(stats['curdow'])
+            currentHour = int(stats['curhour'])
             currentValue = matrix[currentWeekday][currentHour]
 
             # Add content to embed
@@ -416,7 +419,7 @@ class Analytics(commands.Cog):
             # Get progress stats
             cur.execute("SELECT * FROM progressData(%s);", (countdown,))
             data = cur.fetchall()
-            cur.execute("CALL progressStats(%s,null,null,null,null,null,null,null,null,null,null);", (countdown,))
+            cur.execute("CALL progressStats(%s,null,null,null,null,null,null,null,null,null,null,null,null);", (countdown,))
             stats = cur.fetchone()
 
             if not data:
@@ -441,21 +444,17 @@ class Analytics(commands.Cog):
             longestBreakDuration = timedelta(days=stats["longestbreak"].days, seconds=stats["longestbreak"].seconds)
             longestBreakStart = stats["longestbreakstart"].date()
             longestBreakEnd = stats["longestbreakend"].date()
-            start = stats["starttime"].date() # (stats["starttime"] + timedelta(hours=countdown.timezone)).date()
-            startDiff = (datetime.now(timezone.utc) - stats["starttime"]).days
-            end = stats["endtime"].date() # (stats["endtime"] + timedelta(hours=countdown.timezone)).date()
-            endDiff = stats["endtime"] - datetime.now(timezone.utc)
 
             # Add content to embed
             embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
-            embed.description += f"**Progress:** {stats['progress']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
-            embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
-            embed.description += f"**Longest Break:** {longestBreakDuration} ({longestBreakStart} to {longestBreakEnd})\n"
-            embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
-            if endDiff < timedelta(seconds=0):
-                embed.description += f"**End Date:** {end} ({(-1 * endDiff).days:,} days ago)\n"
+            embed.description += f"**Progress:** {stats['progress']:,} / {stats['total']:,} ({stats['percentage']:.1f}%)\n"
+            embed.description += f"**Average Progress per Day:** {stats['rate']:,.0f}\n"
+            embed.description += f"**Longest Break:** {longestBreakDuration} ({stats['longestbreakstart'].date()} to {stats['longestbreakend'].date()})\n"
+            embed.description += f"**Start Date:** {stats['starttime'].date()} ({stats['startage'].days:,} days ago)\n"
+            if stats['endage'] > timedelta(seconds=0):
+                embed.description += f"**End Date:** {stats['endtime'].date()} ({stats['endage'].days:,} days ago)\n"
             else:
-                embed.description += f"**Estimated End Date:** {end} ({endDiff.days:,} days from now)\n"
+                embed.description += f"**Estimated End Date:** {stats['endtime'].date()} ({(-1 * stats['endage']).days:,} days from now)\n"
             embed.set_image(url="attachment://image.png")
 
         # Send embed

@@ -1,4 +1,4 @@
--- countdown-bot tabe definitions
+-- countdown-bot table definitions
 
 DROP TABLE IF EXISTS reactions;
 DROP TABLE IF EXISTS prefixes;
@@ -7,8 +7,9 @@ DROP TABLE IF EXISTS countdowns;
 
 -- Records countdown channels
 CREATE TABLE countdowns (
-    countdownID BIGINT PRIMARY KEY, -- The Discord channel ID
-    serverID BIGINT NOT NULL        -- The channel's Discord server ID
+    countdownID BIGINT PRIMARY KEY,        -- The Discord channel ID
+    serverID BIGINT NOT NULL,              -- The channel's Discord server ID
+    timezone INTERVAL NOT NULL DEFAULT '0' -- The preferred UTC offset
 );
 
 -- Records contributions to countdowns

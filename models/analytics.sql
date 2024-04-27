@@ -5,6 +5,7 @@ DROP PROCEDURE IF EXISTS progressStats;
 DROP FUNCTION IF EXISTS progressData;
 DROP FUNCTION IF EXISTS leaderboardData;
 DROP FUNCTION IF EXISTS historicalContributorData;
+DROP PROCEDURE IF EXISTS heatmapStats;
 DROP FUNCTION IF EXISTS heatmapData;
 DROP FUNCTION IF EXISTS etaData;
 DROP FUNCTION IF EXISTS contributorData;
@@ -46,13 +47,14 @@ CREATE FUNCTION etaData (
     _countdownID BIGINT -- The countdown channel ID
 )
 RETURNS TABLE (
-    _timestamp TIMESTAMPTZ, -- The timestamp of the message
-    eta TIMESTAMPTZ         -- The timestamp of the current ETA
+    _timestamp TIMESTAMP, -- The timestamp of the message
+    eta TIMESTAMP         -- The timestamp of the current ETA
 )
 LANGUAGE plpgsql AS $$
 DECLARE
     total INT;
     startTime INT;
+    _timezone INTERVAL;
 BEGIN
     -- Get total and startTime from first message
     SELECT value, extract(epoch FROM timestamp)
@@ -62,13 +64,19 @@ BEGIN
     ORDER BY timestamp ASC
     LIMIT 1;
 
+    -- Get timezone
+    SELECT timezone
+    INTO _timezone
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+
     -- Calculate eta for each message
     RETURN QUERY
     SELECT
-        timestamp,
+        timestamp AT TIME ZONE _timezone,
         to_timestamp(startTime + total *
             (extract(epoch FROM timestamp) - startTime) / (total - value)
-        ) AS eta
+        ) AT TIME ZONE _timezone AS eta
     FROM messages
     WHERE countdownID = _countdownID
         AND value != total
@@ -82,20 +90,44 @@ CREATE FUNCTION heatmapData (
     _userID BIGINT       -- The user ID to filter by (or NULL for all users)
 )
 RETURNS TABLE (
-    dow NUMERIC,    -- The day of the week (0-6 for Sunday-Saturday)
+    dow NUMERIC,    -- The day of the week (0-6 for Sun-Sat)
     hour NUMERIC,   -- The hour of the day (0-23)
     messages BIGINT -- The number of contributions in the zone
 )
 LANGUAGE plpgsql AS $$
+DECLARE
+    _timezone INTERVAL;
 BEGIN
+    -- Get timezone
+    SELECT timezone
+    INTO _timezone
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+
     RETURN QUERY
     SELECT
-        extract(dow FROM timestamp) AS dow,
-        extract(hour FROM timestamp) AS hour,
+        extract(dow FROM timestamp AT TIME ZONE _timezone) AS dow,
+        extract(hour FROM timestamp AT TIME ZONE _timezone) AS hour,
         count(messageID) as messages
     FROM messages
     WHERE countdownID = _countdownID AND (userID = _userID OR _userID IS NULL)
     GROUP BY dow, hour;
+END
+$$;
+
+CREATE PROCEDURE heatmapStats (
+    _countdownID IN BIGINT, -- The countdown channel ID
+    curDow OUT NUMERIC,     -- The current day of the week (0-6 for Sun-Sat)
+    curHour OUT NUMERIC     -- The current hour of the day (0-23)
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+    SELECT
+        extract(dow FROM NOW() AT TIME ZONE timezone) AS dow,
+        extract(hour FROM NOW() AT TIME ZONE timezone) AS hour
+    INTO curDow, curHour
+    FROM countdowns
+    WHERE countdownID = _countdownID;
 END
 $$;
 
@@ -232,13 +264,21 @@ CREATE FUNCTION progressData (
     _countdownID BIGINT -- The countdown channel ID
 )
 RETURNS TABLE (
-    _timestamp TIMESTAMPTZ, -- The timestamp of the message
-    progress INT            -- The current countdown progress (0-total)
+    _timestamp TIMESTAMP, -- The timestamp of the message
+    progress INT          -- The current countdown progress (0-total)
 )
 LANGUAGE plpgsql AS $$
+DECLARE
+    _timezone INTERVAL;
 BEGIN
+    -- Get timezone
+    SELECT timezone
+    INTO _timezone
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+
     RETURN QUERY
-    SELECT timestamp, value
+    SELECT timestamp AT TIME ZONE _timezone, value
     FROM messages
     WHERE countdownID = _countdownID
     ORDER BY messageID;
@@ -247,23 +287,36 @@ $$;
 
 -- Get general progress-related statistics for a countdown
 CREATE PROCEDURE progressStats (
-    _countdownID IN BIGINT,            -- The countdown channel ID
-    total OUT INT,                     -- The starting value
-    current OUT INT,                   -- The current value
-    progress OUT INT,                  -- The countdown progress (0-total)
-    percentage OUT DECIMAL,            -- The percentage completion
-    startTime OUT TIMESTAMPTZ,         -- The start timestamp
-    endTime OUT TIMESTAMPTZ,           -- The real/predicted finish timestamp
-    rate OUT DECIMAL,                  -- The rate of contributions per day
-    longestBreak OUT INTERVAL,         -- The longest break in contributions
-    longestBreakStart OUT TIMESTAMPTZ, -- The start of the longest break
-    longestBreakEnd OUT TIMESTAMPTZ    -- The end of the longest break
+    _countdownID IN BIGINT,          -- The countdown channel ID
+    total OUT INT,                   -- The starting value
+    current OUT INT,                 -- The current value
+    progress OUT INT,                -- The countdown progress (0-total)
+    percentage OUT DECIMAL,          -- The percentage completion
+    startTime OUT TIMESTAMP,         -- The start timestamp
+    startAge OUT INTERVAL,           -- The time since the start
+    endTime OUT TIMESTAMP,           -- The real/predicted finish timestamp
+    endAge OUT INTERVAL,             -- The time since/until the finish
+    rate OUT DECIMAL,                -- The rate of contributions per day
+    longestBreak OUT INTERVAL,       -- The longest break in contributions
+    longestBreakStart OUT TIMESTAMP, -- The start of the longest break
+    longestBreakEnd OUT TIMESTAMP    -- The end of the longest break
 )
 LANGUAGE plpgsql AS $$
+DECLARE
+    _timezone INTERVAL;
+    _now TIMESTAMP;
 BEGIN
+    -- Get timezone
+    SELECT timezone
+    INTO _timezone
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+
+    SELECT NOW() AT TIME ZONE _timezone INTO _now;
+
     -- Get total and startTime from first message
     SELECT messages.value, messages.timestamp
-    INTO total, startTime
+    INTO total, startTime AT TIME ZONE _timezone
     FROM messages
     WHERE messages.countdownID = _countdownID
     ORDER BY messages.timestamp ASC
@@ -271,7 +324,7 @@ BEGIN
 
     -- Get current and endTime from last message
     SELECT messages.value, messages.timestamp
-    INTO current, endTime
+    INTO current, endTime AT TIME ZONE _timezone
     FROM messages
     WHERE messages.countdownID = _countdownID
     ORDER BY messages.timestamp DESC
@@ -290,14 +343,19 @@ BEGIN
         rate := 0;
         endTime = NOW();
     ELSE
-        rate := progress / extract(epoch FROM (NOW() - startTime));
-        endTime := to_timestamp(extract(epoch FROM NOW()) + (current / rate));
+        rate := progress / extract(epoch FROM (_now - startTime));
+        endTime := to_timestamp(extract(epoch FROM _now) + (current / rate))
+            AT TIME ZONE _timezone;
     END IF;
     rate := rate * 60 * 60 * 24; -- Adjust rate from per sec to per day
 
+    -- Calculate startAge and endAge
+    startAge := _now - startTime;
+    endAge := _now - endTime;
+
     -- Calculate longestBreak, longestBreakStart, and longestBreakEnd
     SELECT
-        timestamp,
+        timestamp AT TIME ZONE _timezone,
         CASE
             WHEN value = 0 THEN '0'
             ELSE LEAD(timestamp, 1, NOW()) OVER (ORDER BY timestamp) - timestamp
@@ -317,16 +375,25 @@ CREATE FUNCTION speedData (
     hours INT            -- The period size, in hours
 )
 RETURNS TABLE (
-    periodStart TIMESTAMPTZ, -- The start of the period
-    messages BIGINT          -- The number of contributions in the period
+    periodStart TIMESTAMP, -- The start of the period
+    messages BIGINT        -- The number of contributions in the period
 )
 LANGUAGE plpgsql AS $$
+DECLARE
+    _timezone INTERVAL;
 BEGIN
+    -- Get timezone
+    SELECT timezone
+    INTO _timezone
+    FROM countdowns
+    WHERE countdownID = _countdownID;
+
     RETURN QUERY
     SELECT
         to_timestamp(
-            (extract(epoch FROM timestamp) / hours / 3600)::int * hours * 3600
-        ) AS periodStart,
+            floor(extract(epoch FROM timestamp AT TIME ZONE _timezone) / hours
+            / 3600)::int * hours * 3600
+        ) AT TIME ZONE '0:00' AS periodStart,
         count(messageID) as messages
     FROM messages
     WHERE countdownID = _countdownID
