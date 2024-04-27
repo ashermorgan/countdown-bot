@@ -22,7 +22,7 @@ LOG_LEVEL=INFO
 
 Initialize the PostgreSQL database
 ```
-psql 'postgresql://...' -f models/tables.sql -f models/utilities.sql -f models/analytics.sql
+psql 'postgresql://...' -f models/ddl.sql -f models/dml-utils.sql -f models/dml-core.sql -f models/dml-analytics.sql
 ```
 
 Run the bot

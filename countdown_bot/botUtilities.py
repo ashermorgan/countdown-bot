@@ -163,7 +163,7 @@ def getPrefix(conn, ctx, default):
     """
 
     with conn.cursor() as cur:
-        cur.execute("SELECT * FROM getPrefixes(%s, %s);",
+        cur.execute("SELECT * FROM getServerPrefixes(%s, %s);",
             (ctx.channel.guild.id if ctx.channel.guild else None, ctx.channel.id))
         prefixes = cur.fetchall()
         return [x["prefix"] for x in prefixes] if prefixes else default

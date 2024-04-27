@@ -5,7 +5,7 @@ import logging
 
 
 # Import modules
-from . import analyticsCog, utilitiesCog
+from . import analyticsCog, coreCog, helpCog
 from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getPrefix
 
 
@@ -27,7 +27,8 @@ class CountdownBot(commands.Bot):
 
 
     async def setup_hook(self):
-        await self.add_cog(utilitiesCog.Utilities(self, self.db_connection))
+        await self.add_cog(helpCog.Help(self))
+        await self.add_cog(coreCog.Core(self, self.db_connection))
         await self.add_cog(analyticsCog.Analytics(self, self.db_connection))
 
 
@@ -37,40 +38,12 @@ class CountdownBot(commands.Bot):
 
 
 
-    async def on_guild_join(self, guild):
-        # Print status
-        self.logger.info(f"Added to {guild} (ID {guild.id})")
-
-        # Create embed
-        embed=discord.Embed(title=":rocket: Getting Started with countdown-bot", color=COLORS["embed"])
-        embed.description = f"Thanks for adding me to your server! Here are some steps for getting started:\n"
-        embed.description += f"**1.** View help information using the `{self.prefixes[0]}help` command\n"
-        embed.description += f"**2.** Activate a new countdown channel using the `{self.prefixes[0]}activate` command\n"
-        embed.description += f"**3.** Change my settings using the `{self.prefixes[0]}config` command\n"
-        embed.description += f"**4.** View countdown analytics using the `{self.prefixes[0]}analytics` command\n"
-
-        # Send embed
-        await guild.system_channel.send(embed=embed)
-
-
-
     async def on_message(self, obj):
-        # Respond to @mentions
-        if self.user in obj.mentions:
-            embed=discord.Embed(title="countdown-bot", description=f"Use `{(await self.get_prefix(obj))[0]}help` to view help information", color=COLORS["embed"])
-            await obj.channel.send(embed=embed)
-
-        # Parse countdown message
-        with self.db_connection.cursor() as cur:
-            if (await addMessage(cur, obj)):
-                self.db_connection.commit()
-
-        # Run commands
         try:
             # Make command prefixes, names, and arguments case insensitive
             obj.content = obj.content.lower()
 
-            # Execute command
+            # Run commands
             await self.process_commands(obj)
         except:
             pass

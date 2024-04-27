@@ -251,7 +251,6 @@ class Analytics(commands.Cog):
             data = cur.fetchall()
 
             if not data:
-                print(countdown, userID, data)
                 raise CommandError("The countdown doesn't have enough messages yet")
 
             # Create heatmap matrix
