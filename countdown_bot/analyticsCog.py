@@ -10,15 +10,14 @@ import re
 import tempfile
 
 # Import modules
-from .botUtilities import COLORS, getContextCountdown, getUsername, getContributor, CommandError
-from .models import POINT_RULES
+from .botUtilities import COLORS, POINT_RULES, CommandError, CountdownNotFound, getUsername, getContributor, getContextCountdown
 
 
 
 class Analytics(commands.Cog):
-    def __init__(self, bot, databaseSessionMaker):
+    def __init__(self, bot, db_connection):
         self.bot = bot
-        self.databaseSessionMaker = databaseSessionMaker
+        self.db_connection = db_connection
 
 
 
@@ -45,9 +44,11 @@ class Analytics(commands.Cog):
         Shows information about countdown contributors
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
+            countdown = getContextCountdown(cur, ctx)
+            if not countdown:
+                raise CountdownNotFound()
 
             # Create temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -65,14 +66,20 @@ class Analytics(commands.Cog):
                 ax.yaxis.set_major_formatter(PercentFormatter())
 
                 # Get stats
-                contributors = countdown.historicalContributors()
+                cur.execute("SELECT * FROM contributorData(%s);", (countdown,))
+                contributors = [x["userid"] for x in cur.fetchall()]
+                cur.execute("SELECT * FROM historicalContributorData(%s);", (countdown,))
+                data = cur.fetchall()
+
+                if not data:
+                    raise CommandError("The countdown doesn't have enough messages yet")
 
                 # Plot data and add legend
-                for author in list(contributors.keys())[:min(len(contributors), 15)]:
+                for author in contributors[:15]:
                     # Top 15 contributors get included in the legend
-                    ax.plot([x["progress"] for x in contributors[author]], [x["percentage"] * 100 for x in contributors[author]], label=await getUsername(self.bot, author))
-                for author in list(contributors.keys())[15:max(len(contributors), 15)]:
-                    ax.plot([x["progress"] for x in contributors[author]], [x["percentage"] * 100 for x in contributors[author]])
+                    ax.plot([x["progress"] for x in data if x["userid"] == author], [x["percentage"] for x in data if x["userid"] == author], label=await getUsername(self.bot, author))
+                for author in contributors[15:]:
+                    ax.plot([x["progress"] for x in data if x["userid"] == author], [x["percentage"] for x in data if x["userid"] == author])
                 ax.legend(bbox_to_anchor=(1,1.025), loc="upper left")
 
                 # Save graph
@@ -80,39 +87,42 @@ class Analytics(commands.Cog):
                 file = discord.File(tmp.name, filename="image.png")
 
                 # Add content to embed
-                embed.description = f"**Countdown Channel:** <#{countdown.id}>"
+                embed.description = f"**Countdown Channel:** <#{countdown}>"
                 embed.set_image(url="attachment://image.png")
             elif (option == ""):
                 # Create figure
                 fig, ax = plt.subplots()
 
                 # Get stats
-                contributors = countdown.contributors()
+                cur.execute("SELECT * FROM contributorData(%s);", (countdown,))
+                data = cur.fetchall()
+
+                if not data:
+                    raise CommandError("The countdown doesn't have enough messages yet")
 
                 # Add data to graph
-                x = [x["author"] for x in contributors]
-                y = [x["contributions"] for x in contributors]
-                pieData = ax.pie(y, autopct="%1.1f%%", startangle=90)
+                pieData = ax.pie([x["contributions"] for x in data], autopct="%1.1f%%", startangle=90)
 
                 # Add legend
-                ax.legend(pieData[0], [await getUsername(self.bot, i) for i in x[:min(len(x), 15)]], bbox_to_anchor=(1,1.025), loc="upper left")
+                ax.legend(pieData[0], [await getUsername(self.bot, x["userid"]) for x in
+                    data[:15]], bbox_to_anchor=(1,1.025), loc="upper left")
 
                 # Save graph
                 fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
                 file = discord.File(tmp.name, filename="image.png")
 
                 # Add content to embed
-                embed.description = f"**Countdown Channel:** <#{countdown.id}>"
-                ranks = ""
-                users = ""
-                contributions = ""
-                for i in range(0, min(len(x), 20)):
-                    ranks += f"{i+1:,}\n"
-                    contributions += f"{y[i]:,} *({round(y[i] / len(countdown.messages) * 100, 1)}%)*\n"
-                    users += f"<@{x[i]}>\n"
-                embed.add_field(name="Rank",value=ranks, inline=True)
-                embed.add_field(name="User",value=users, inline=True)
-                embed.add_field(name="Contributions",value=contributions, inline=True)
+                embed.description = f"**Countdown Channel:** <#{countdown}>"
+                ranksColumn = ""
+                usersColumn = ""
+                contributionsColumn = ""
+                for i in range(0, min(len(data), 20)):
+                    ranksColumn += f"{i+1:,}\n"
+                    contributionsColumn += f"{data[i]['contributions']:,} *({data[i]['percentage']:.1f}%)*\n"
+                    usersColumn += f"<@{data[i]['userid']}>\n"
+                embed.add_field(name="Rank", value=ranksColumn, inline=True)
+                embed.add_field(name="User", value=usersColumn, inline=True)
+                embed.add_field(name="Contributions", value=contributionsColumn, inline=True)
                 embed.set_image(url="attachment://image.png")
             else:
                 raise CommandError(f"Unrecognized option: `{option}`")
@@ -132,14 +142,16 @@ class Analytics(commands.Cog):
 
 
     @commands.command(aliases=["e"])
-    async def eta(self, ctx, period="24.0"):
+    async def eta(self, ctx):
         """
         Shows information about the estimated completion date
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
+            countdown = getContextCountdown(cur, ctx)
+            if not countdown:
+                raise CountdownNotFound()
 
             # Create temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -148,18 +160,14 @@ class Analytics(commands.Cog):
             # Create embed
             embed=discord.Embed(title=":calendar: Countdown Estimated Completion Date", color=COLORS["embed"])
 
-            # Parse period
-            try:
-                period = float(period)
-            except ValueError:
-                raise CommandError(f"Invalid number: `{period}`")
-
-            # Make sure period is valid
-            if (period < 0.01):
-                raise CommandError("The period cannot be less than 0.01 hours")
-
             # Get stats
-            eta = countdown.eta(timedelta(hours=period))
+            cur.execute("CALL progressStats(%s,null,null,null,null,null,null,null,null,null,null,null,null);", (countdown,))
+            stats = cur.fetchone()
+            cur.execute("SELECT * FROM etaData(%s);", (countdown,))
+            data = cur.fetchall()
+
+            if not data:
+                raise CommandError("The countdown doesn't have enough messages yet")
 
             # Create figure
             fig, ax = plt.subplots()
@@ -167,10 +175,10 @@ class Analytics(commands.Cog):
             fig.autofmt_xdate()
 
             # Add ETA data to graph
-            ax.plot(eta[0], eta[1], "C0", label="Estimated Completion Date")
+            ax.plot([x["_timestamp"] for x in data], [x["eta"] for x in data], "C0", label="Estimated Completion Date")
 
             # Add reference line graph
-            ax.plot([eta[0][0], eta[0][-1]], [eta[0][0], eta[0][-1]], "--C1", label="Current Date")
+            ax.plot([data[0]["_timestamp"], data[-1]["_timestamp"]], [data[0]["_timestamp"], data[-1]["_timestamp"]], "--C1", label="Current Date")
 
             # Add legend
             ax.legend()
@@ -180,21 +188,19 @@ class Analytics(commands.Cog):
             file = discord.File(tmp.name, filename="image.png")
 
             # Calculate embed data
-            maxEta = max(eta[1])
-            maxDate = eta[0][eta[1].index(maxEta)]
-            minEta = min(eta[1][1:])
-            minDate = eta[0][eta[1].index(minEta)]
-            end = eta[1][-1] + timedelta(hours=countdown.timezone)
-            endDiff = eta[1][-1] - datetime.utcnow()
+            maxEta = max([x["eta"] for x in data])
+            maxDate = [x["_timestamp"] for x in data if x["eta"] == maxEta][0]
+            minEta = min([x["eta"] for x in data])
+            minDate = [x["_timestamp"] for x in data if x["eta"] == minEta][0]
 
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
+            embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
             embed.description += f"**Maximum Estimate:** {maxEta.date()} (on {maxDate.date()})\n"
             embed.description += f"**Minimum Estimate:** {minEta.date()} (on {minDate.date()})\n"
-            if endDiff < timedelta(seconds=0):
-                embed.description += f"**Actual Completion Date:** {end.date()} ({(-1 * endDiff).days:,} days ago)\n"
+            if stats['endage'] > timedelta(seconds=0):
+                embed.description += f"**Actual Completion Date:** {stats['endtime'].date()} ({stats['endage'].days:,} days ago)\n"
             else:
-                embed.description += f"**Current Estimate:** {end.date()} ({endDiff.days:,} days from now)\n"
+                embed.description += f"**Current Estimate:** {stats['endtime'].date()} ({(-1 * stats['endage']).days:,} days from now)\n"
             embed.set_image(url="attachment://image.png")
 
         # Send embed
@@ -217,9 +223,11 @@ class Analytics(commands.Cog):
         Shows a heatmap of when countdown messages are sent
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
+            countdown = getContextCountdown(cur, ctx)
+            if not countdown:
+                raise CountdownNotFound()
 
             # Create temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -234,8 +242,22 @@ class Analytics(commands.Cog):
             else:
                 userID = await getContributor(self.bot, countdown, user)
 
-            # Get heatmap matrix
-            heatmapMatrix = countdown.heatmap(userID)
+            # Get heatmap data
+            cur.execute("CALL heatmapStats(%s, null, null);",
+                (countdown,))
+            stats = cur.fetchone()
+            cur.execute("SELECT * FROM heatmapData(%s, %s);",
+                (countdown, userID))
+            data = cur.fetchall()
+
+            if not data:
+                print(countdown, userID, data)
+                raise CommandError("The countdown doesn't have enough messages yet")
+
+            # Create heatmap matrix
+            matrix = [[0 for i in range(24)] for j in range(7)]
+            for row in data:
+                matrix[int(row["dow"])][int(row["hour"])] = row["messages"]
 
             # Define hour and weekday names
             hours = ["12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM", "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM"]
@@ -253,7 +275,7 @@ class Analytics(commands.Cog):
             # Add data to graph
             cmap = plt.get_cmap("jet").copy()
             cmap.set_bad("gray")
-            cax = ax.matshow(np.ma.masked_equal(np.array(heatmapMatrix), 0), cmap=cmap, aspect="auto")
+            cax = ax.matshow(np.ma.masked_equal(np.array(matrix), 0), cmap=cmap, aspect="auto")
             fig.colorbar(cax)
 
             # Save graph
@@ -261,17 +283,17 @@ class Analytics(commands.Cog):
             file = discord.File(tmp.name, filename="image.png")
 
             # Get embed data
-            total = np.sum(heatmapMatrix)
+            total = np.sum(matrix)
             averageValue = total / (24*7)
-            maxValue = np.max(heatmapMatrix)
-            maxWeekday = np.where(heatmapMatrix == maxValue)[0][0]
-            maxHour = np.where(heatmapMatrix == maxValue)[1][0]
-            currentWeekday = ((datetime.utcnow() + timedelta(hours=countdown.timezone)).weekday() + 1) % 7
-            currentHour = (datetime.utcnow() + timedelta(hours=countdown.timezone)).hour
-            currentValue = heatmapMatrix[currentWeekday][currentHour]
+            maxValue = np.max(matrix)
+            maxWeekday = np.where(matrix == maxValue)[0][0]
+            maxHour = np.where(matrix == maxValue)[1][0]
+            currentWeekday = int(stats['curdow'])
+            currentHour = int(stats['curhour'])
+            currentValue = matrix[currentWeekday][currentHour]
 
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
+            embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
             if (userID): embed.description += f"**User:** <@{userID}>\n"
             embed.description += f"**Total Contributions:** {total:,}\n"
             embed.description += f"**Average Contributions per Zone:** {round(averageValue):,}\n"
@@ -299,29 +321,41 @@ class Analytics(commands.Cog):
         Shows the countdown leaderboard
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
-
-            # Get leaderboard
-            leaderboard = countdown.leaderboard()
+            countdown = getContextCountdown(cur, ctx)
+            if not countdown:
+                raise CountdownNotFound()
 
             # Create embed
             embed=discord.Embed(title=":trophy: Countdown Leaderboard", color=COLORS["embed"])
 
-            # Make sure the countdown has started
+            # Get user
+            if (user == None):
+                userID = None
+            else:
+                userID = await getContributor(self.bot, countdown, user)
+
+            # Get leaderboard
+            cur.execute("SELECT * FROM leaderboardData(%s, %s);",
+                (countdown, userID))
+            data = cur.fetchall()
+
+            if not data:
+                raise CommandError("The countdown doesn't have enough messages yet")
+
             if (user is None):
                 # Add description
-                embed.description = f"**Countdown Channel:** <#{countdown.id}>"
+                embed.description = f"**Countdown Channel:** <#{countdown}>"
 
                 # Add leaderboard
                 ranks = ""
                 points = ""
                 users = ""
-                for i in range(0, min(len(leaderboard), 20)):
-                    ranks += f"{i+1:,}\n"
-                    points += f"{leaderboard[i]['points']:,}\n"
-                    users += f"<@{leaderboard[i]['author']}>\n"
+                for row in data[:20]:
+                    ranks += f"{row['ranking']:,}\n"
+                    points += f"{row['total']:,}\n"
+                    users += f"<@{row['userid']}>\n"
                 embed.add_field(name="Rank",value=ranks, inline=True)
                 embed.add_field(name="Points",value=points, inline=True)
                 embed.add_field(name="User",value=users, inline=True)
@@ -330,34 +364,28 @@ class Analytics(commands.Cog):
                 rules = ""
                 values = ""
                 for rule in POINT_RULES:
-                    rules += f"{rule}\n"
-                    values += f"{POINT_RULES[rule]} points\n"
+                    rules += f"{POINT_RULES[rule][0]}\n"
+                    values += f"{POINT_RULES[rule][1]} points\n"
                 embed.add_field(name="Rules", value="Only 1 rule is applied towards each number", inline=False)
                 embed.add_field(name="Numbers", value=rules, inline=True)
                 embed.add_field(name="Points", value=values, inline=True)
             else:
-                # Get user rank
-                if (re.match("^\d+$", user) and int(user) > 0 and int(user) <= len(leaderboard)):
-                    rank = int(user) - 1
-                else:
-                    rank = [x["author"] for x in leaderboard].index(await getContributor(self.bot, countdown, user))
-
                 # Add description
-                embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
-                embed.description += f"**User:** <@{leaderboard[rank]['author']}>\n"
-                embed.description += f"**Rank:** #{rank + 1:,}\n"
-                embed.description += f"**Total Points:** {leaderboard[rank]['points']:,}\n"
-                embed.description += f"**Total Contributions:** {leaderboard[rank]['contributions']:,} *({round(leaderboard[rank]['contributions'] / len(countdown.messages) * 100, 1)}%)*\n"
+                embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
+                embed.description += f"**User:** <@{data[0]['userid']}>\n"
+                embed.description += f"**Rank:** #{data[0]['ranking']:,}\n"
+                embed.description += f"**Total Points:** {data[0]['total']:,}\n"
+                embed.description += f"**Total Contributions:** {data[0]['contributions']:,} *({round(data[0]['percentage'])}%)*\n"
 
                 # Add points breakdown
                 rules = ""
                 points = ""
                 percentage = ""
-                for category in leaderboard[rank]["breakdown"]:
-                    rules += f"{category}\n"
-                    points += f"{leaderboard[rank]['breakdown'][category] * POINT_RULES[category]:,} *({leaderboard[rank]['breakdown'][category]:,})*\n"
-                    if (leaderboard[rank]['points'] > 0):
-                        percentage += f"{round(leaderboard[rank]['breakdown'][category] * POINT_RULES[category] / leaderboard[rank]['points'] * 100, 1)}%\n"
+                for rule in POINT_RULES:
+                    rules += f"{POINT_RULES[rule][0]}\n"
+                    points += f"{data[0][rule] * POINT_RULES[rule][1]:,} *({data[0][rule]:,})*\n"
+                    if (data[0]['total'] > 0):
+                        percentage += f"{round(data[0][rule] * POINT_RULES[rule][1] / data[0]['total'] * 100, 1)}%\n"
                     else:
                         percentage += "0%\n"
                 embed.add_field(name="Category", value=rules, inline=True)
@@ -375,9 +403,11 @@ class Analytics(commands.Cog):
         Shows information about countdown progress
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
+            countdown = getContextCountdown(cur, ctx)
+            if not countdown:
+                raise CountdownNotFound()
 
             # Create temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -387,8 +417,13 @@ class Analytics(commands.Cog):
             embed=discord.Embed(title=":chart_with_downwards_trend: Countdown Progress", color=COLORS["embed"])
 
             # Get progress stats
-            stats = countdown.progress()
-            breakStats = countdown.longestBreak()
+            cur.execute("SELECT * FROM progressData(%s);", (countdown,))
+            data = cur.fetchall()
+            cur.execute("CALL progressStats(%s,null,null,null,null,null,null,null,null,null,null,null,null);", (countdown,))
+            stats = cur.fetchone()
+
+            if not data:
+                raise CommandError("The countdown doesn't have enough messages yet")
 
             # Create figure
             fig, ax = plt.subplots()
@@ -397,8 +432,8 @@ class Analytics(commands.Cog):
             fig.autofmt_xdate()
 
             # Add data to graph
-            x = [stats["start"] + timedelta(hours=countdown.timezone)] + [x["time"] + timedelta(hours=countdown.timezone) for x in stats["progress"]]
-            y = [0] + [x["progress"] for x in stats["progress"]]
+            x = [data[0]["_timestamp"]] + [x["_timestamp"] for x in data]
+            y = [0] + [x["progress"] for x in data]
             ax.plot(x, y)
 
             # Save graph
@@ -406,24 +441,20 @@ class Analytics(commands.Cog):
             file = discord.File(tmp.name, filename="image.png")
 
             # Calculate embed data
-            longestBreakDuration = timedelta(days=breakStats['duration'].days, seconds=breakStats['duration'].seconds)
-            longestBreakStart = breakStats['start'].date()
-            longestBreakEnd = breakStats['end'].date()
-            start = (stats["start"] + timedelta(hours=countdown.timezone)).date()
-            startDiff = (datetime.utcnow() - stats["start"]).days
-            end = (stats["eta"] + timedelta(hours=countdown.timezone)).date()
-            endDiff = stats["eta"] - datetime.utcnow()
+            longestBreakDuration = timedelta(days=stats["longestbreak"].days, seconds=stats["longestbreak"].seconds)
+            longestBreakStart = stats["longestbreakstart"].date()
+            longestBreakEnd = stats["longestbreakend"].date()
 
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
-            embed.description += f"**Progress:** {stats['total'] - stats['current']:,} / {stats['total']:,} ({round(stats['percentage'], 1)}%)\n"
-            embed.description += f"**Average Progress per Day:** {round(stats['rate']):,}\n"
-            embed.description += f"**Longest Break:** {longestBreakDuration} ({longestBreakStart} to {longestBreakEnd})\n"
-            embed.description += f"**Start Date:** {start} ({startDiff:,} days ago)\n"
-            if endDiff < timedelta(seconds=0):
-                embed.description += f"**End Date:** {end} ({(-1 * endDiff).days:,} days ago)\n"
+            embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
+            embed.description += f"**Progress:** {stats['progress']:,} / {stats['total']:,} ({stats['percentage']:.1f}%)\n"
+            embed.description += f"**Average Progress per Day:** {stats['rate']:,.0f}\n"
+            embed.description += f"**Longest Break:** {longestBreakDuration} ({stats['longestbreakstart'].date()} to {stats['longestbreakend'].date()})\n"
+            embed.description += f"**Start Date:** {stats['starttime'].date()} ({stats['startage'].days:,} days ago)\n"
+            if stats['endage'] > timedelta(seconds=0):
+                embed.description += f"**End Date:** {stats['endtime'].date()} ({stats['endage'].days:,} days ago)\n"
             else:
-                embed.description += f"**Estimated End Date:** {end} ({endDiff.days:,} days from now)\n"
+                embed.description += f"**Estimated End Date:** {stats['endtime'].date()} ({(-1 * stats['endage']).days:,} days from now)\n"
             embed.set_image(url="attachment://image.png")
 
         # Send embed
@@ -441,14 +472,16 @@ class Analytics(commands.Cog):
 
 
     @commands.command(aliases=["s"])
-    async def speed(self, ctx, period="24.0"):
+    async def speed(self, ctx, period="24"):
         """
         Shows information about countdown speed
         """
 
-        with self.databaseSessionMaker() as session:
+        with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown(session, ctx)
+            countdown = getContextCountdown(cur, ctx)
+            if not countdown:
+                raise CountdownNotFound()
 
             # Create temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
@@ -459,18 +492,16 @@ class Analytics(commands.Cog):
 
             # Parse period
             try:
-                period = float(period)
+                period = int(period)
             except ValueError:
                 raise CommandError(f"Invalid number: `{period}`")
 
-            # Make sure period is valid
-            if (period < 0.01):
-                raise CommandError("The period cannot be less than 0.01 hours")
+            # Get data
+            cur.execute("SELECT * FROM speedData(%s, %s);", (countdown, period))
+            data = cur.fetchall()
 
-            # Get stats
-            stats = countdown.progress()
-            period = timedelta(hours=period)
-            speed = countdown.speed(period)
+            if not data:
+                raise CommandError("The countdown doesn't have enough messages yet")
 
             # Create figure
             fig, ax = plt.subplots()
@@ -479,24 +510,27 @@ class Analytics(commands.Cog):
             fig.autofmt_xdate()
 
             # Add data to graph
-            for i in range(0, len(speed[0])):
-                ax.bar(speed[0][i], speed[1][i], width=period, align="edge", color="#1f77b4")
+            period = timedelta(hours=period)
+            for row in data:
+                ax.bar(row["periodstart"], row["messages"], width=period, align="edge", color="#1f77b4")
 
             # Save graph
             fig.savefig(tmp.name, bbox_inches="tight", pad_inches=0.2)
             file = discord.File(tmp.name, filename="image.png")
 
+            # Calculate embed data
+            maxSpeed = max([x["messages"] for x in data])
+            avgSpeed = round(sum([x["messages"] for x in data]) / len(data))
+            curSpeed = data[-1]["messages"]
+            curPeriod = data[-1]["periodstart"]
+
             # Add content to embed
-            embed.description = f"**Countdown Channel:** <#{countdown.id}>\n\n"
+            embed.description = f"**Countdown Channel:** <#{countdown}>\n\n"
             embed.description += f"**Period Size:** {period}\n"
-            if (len(countdown.messages) > 1):
-                rate = (stats['total'] - stats['current'])/((countdown.messages[-1].timestamp - countdown.messages[0].timestamp) / period)
-            else:
-                rate = 0
-            embed.description += f"**Average Progress per Period:** {round(rate):,}\n"
-            embed.description += f"**Record Progress per Period:** {max(speed[1]):,}\n"
-            embed.description += f"**Last Period Start:** {speed[0][-1]}\n"
-            embed.description += f"**Progress during Last Period:** {speed[1][-1]:,}\n"
+            embed.description += f"**Average Progress per Period:** {avgSpeed:,}\n"
+            embed.description += f"**Record Progress per Period:** {maxSpeed:,}\n"
+            embed.description += f"**Last Period Start:** {curPeriod}\n"
+            embed.description += f"**Progress during Last Period:** {curSpeed:,}\n"
             embed.set_image(url="attachment://image.png")
 
         # Send embed

@@ -2,10 +2,6 @@
 import discord
 import re
 
-# Import modules
-from .models import Countdown, Message, MessageIncorrectError, MessageNotAllowedError
-
-
 
 COLORS = {
     "error": 0xD52C42,
@@ -24,6 +20,22 @@ class ContributorNotFound(Exception):
 class CountdownNotFound(Exception):
     """Raised when a matching countdown cannot be found"""
     pass
+
+
+
+# The rules for awarding leaderboard points
+POINT_RULES = {
+    "r1": ("First Number", 0),
+    "r2": ("1000s", 1000),
+    "r3": ("1001s", 500),
+    "r4": ("200s", 200),
+    "r5": ("201s", 100),
+    "r6": ("100s", 100),
+    "r7": ("101s", 50),
+    # "r8": ("Prime Numbers", 15),
+    "r8": ("Odd Numbers", 12),
+    "r9": ("Even Numbers", 10),
+}
 
 
 
@@ -46,29 +58,6 @@ async def getUsername(bot, id):
 
     user = await bot.fetch_user(id)
     return f"{user.name}#{user.discriminator}"
-
-
-
-async def getNickname(bot, server, id):
-    """
-    Get a user's nickname in a server
-
-    Parameters
-    ----------
-    bot : commands.Bot
-        The bot
-    server : int
-        The server ID
-    id : int
-        The user ID
-
-    Returns
-    -------
-    str
-        The nickname
-    """
-
-    return (await (bot.get_guild(server)).fetch_member(id)).nick or await getUsername(bot, id)
 
 
 
@@ -96,170 +85,104 @@ async def getContributor(bot, countdown, text):
         If a matching contributor cannot be found
     """
 
-    # Get countdown contributors
-    contributors = [x["author"] for x in countdown.contributors()]
-
-    # Get user from mention
-    if (re.match("^<@!\d+>$", text) and int(text[3:-1]) in contributors):
-        return int(text[3:-1])
-    elif (re.match("^<@!\d+>$", text)):
-        raise ContributorNotFound(text)
-
-    # Get user from username
-    for contributor in contributors:
-        try:
-            username = await getUsername(bot, contributor)
-        except:
-            continue
-        if (username.lower().startswith(text.lower())):
-            return contributor
-
-    # Get user from nickname
-    for contributor in contributors:
-        try:
-            nickname = await getNickname(bot, countdown.server_id, contributor)
-        except:
-            continue
-        if (nickname.lower().startswith(text.lower())):
-            return contributor
+    if (re.match("^<@\d+>$", text)):
+        return int(text[2:-1])
 
     raise ContributorNotFound(text)
 
 
 
-def getCountdown(session, id):
+def isCountdown(cur, id):
     """
-    Get a countdown object
+    Determine whether a channel is a countdown
 
     Parameters
     ----------
-    session : sqlalchemy.orm.Session
-        The database session to use
+    cur : psycopg.cursor
+        The database cursor
     id : int
-        The countdown id
+        The countdown ID
 
     Returns
     -------
-    Countdown
-        The Countdown
+    bool
+        A boolean indicating whether the channel is a countdown
     """
 
-    return session.query(Countdown).filter(Countdown.id == id).first()
+    cur.execute("CALL isCountdown(%s, null);",
+        (id,))
+    return cur.fetchone()["result"]
 
 
 
-def getContextCountdown(session, ctx):
+def getContextCountdown(cur, ctx):
     """
     Get the most relevant countdown to a certain context
 
     Parameters
     ----------
-    session : sqlalchemy.orm.Session
-        The database session to use
+    cur : psycopg.cursor
+        The database cursor
     ctx : discord.ext.commands.Context
         The context
 
     Returns
     -------
-    Countdown
-        The countdown
-
-    Raises
-    ------
-    CountdownNotFound
-        If a matching countdown cannot be found
+    countdownID
+        The countdown ID
     """
 
     if (isinstance(ctx.channel, discord.channel.TextChannel)):
-        # Countdown channel
-        countdown = getCountdown(session, ctx.channel.id)
-        if (countdown): return countdown
-
-        # Server with countdown channel: get first countdown in this server that use the current prefix
-        countdown = session.query(Countdown).filter(Countdown.server_id == ctx.channel.guild.id and ctx.prefix in [x.value for x in Countdown.prefixes]).first()
-        if (countdown): return countdown
+        # Channel inside a server
+        cur.execute("CALL getServerContextCountdown(%s, %s, %s, null);",
+            (ctx.channel.guild.id, ctx.channel.id, ctx.prefix))
+        return cur.fetchone()["countdownid"]
 
     if (isinstance(ctx.channel, discord.channel.DMChannel)):
-        # DM with user who has contributed to a countdown: get the first countdown they ever contributed to
-        firstMessage = session.query(Message).filter(Message.author_id == ctx.author.id).order_by(Message.timestamp).first()
-        if (firstMessage): return firstMessage.countdown
+        # DM with a user
+        cur.execute("CALL getUserContextCountdown(%s, null);",
+            (ctx.author.id,))
+        return cur.fetchone()["countdownid"]
 
-    raise CountdownNotFound()
+    return None
 
 
 
-def getPrefix(databaseSessionMaker, ctx, default):
+def getPrefix(conn, ctx, default):
     """
     Get the bot prefix for a certain context
 
     Parameters
     ----------
-    databaseSessionMaker : sqlalchemy.orm.sessionmaker
-        The database session maker
+    conn : psycopg.Connection
+        The database connection
     ctx : discord.ext.commands.Context
         The context
     default : list
         The default prefixes
     """
 
-    with databaseSessionMaker() as session:
-        # Countdown channel
-        countdown = getCountdown(session, ctx.channel.id)
-        if (countdown and len(countdown.prefixes) > 0):
-            return [x.value.lower() for x in countdown.prefixes]
-
-        # Server with countdown channels
-        if (isinstance(ctx.channel, discord.channel.TextChannel)):
-            serverCountdowns = session.query(Countdown).filter(Countdown.server_id == ctx.channel.guild.id).all()
-            # Get list of prefixes
-            prefixes = []
-            for countdown in serverCountdowns:
-                prefixes += [x.value.lower() for x in countdown.prefixes]
-            if (len(prefixes) > 0):
-                return list(dict.fromkeys(prefixes))
-
-        # Return default prefixes
-        return [x.lower() for x in default]
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM getPrefixes(%s, %s);",
+            (ctx.channel.guild.id if ctx.channel.guild else None, ctx.channel.id))
+        prefixes = cur.fetchall()
+        return [x["prefix"] for x in prefixes] if prefixes else default
 
 
 
-def parseMessage(message):
-    """
-    Parses a countdown message from a Discord message
-
-    Parameters
-    ----------
-    message : discord.Message
-        The Discord message
-
-    Returns
-    -------
-    Message
-    """
-
-    return Message(
-        id = message.id,
-        countdown_id = message.channel.id,
-        author_id = message.author.id,
-        timestamp = message.created_at,
-        number = int(re.findall("^[0-9,]+", message.content)[0].replace(",","")),
-    )
-
-
-
-async def addMessage(countdown, rawMessage):
+async def addMessage(cur, message):
     """
     Parse a message and add it to a countdown
 
     Notes
     -----
-    If the message is invalid or incorrect, a reacted will be added accordingly
+    If the message is invalid or incorrect, a reaction will be added accordingly
 
     Parameters
     ----------
-    countdown : Countdown
-        The countdown
-    rawMessage : discord.Message
+    cur : psycopg.cursor
+        The database cursor
+    message : discord.Message
         The Discord message object
 
     Returns
@@ -268,32 +191,32 @@ async def addMessage(countdown, rawMessage):
         Whether the message was valid and added to the countdown
     """
 
-    try:
-        # Parse message
-        message = parseMessage(rawMessage)
+    # Parse message number
+    match = re.search("^[0-9,]+", message.content)
+    if not match: return False
+    number = int(match[0].replace(",", ""))
 
-        # Add message
-        countdown.addMessage(message)
+    # Attempt to add result
+    cur.execute("CALL addMessage(%s,%s,%s,%s,%s,null,null,null);", (
+        message.id, message.channel.id, message.author.id, number,
+        message.created_at
+    ))
+    result = cur.fetchone()
 
-        # Mark important messages
-        if (message.number in [x.number for x in countdown.reactions]):
-            for reaction in [x for x in countdown.reactions if x.number == message.number]:
-                try:
-                    await rawMessage.add_reaction(reaction.value)
-                except:
-                    pass
-        if (countdown.messages[0].number >= 500 and message.number % (countdown.messages[0].number // 50) == 0):
-            await rawMessage.pin()
-    except MessageNotAllowedError:
-        await rawMessage.add_reaction("⛔")
-        return False
-    except MessageIncorrectError:
-        await rawMessage.add_reaction("❌")
-        return False
-    except:
-        return False
-    else:
-        return True
+    # Process result
+    if result["result"] == 'badNumber':
+        await message.add_reaction("❌")
+    if result["result"] == 'badUser':
+        await message.add_reaction("⛔")
+    if result["pin"]:
+        await message.pin()
+    if result["reactions"]:
+        cur.execute("SELECT * FROM getReactions(%s, %s);",
+            (message.channel.id, number))
+        for reaction in cur.fetchall():
+            await message.add_reaction(reaction["value"])
+
+    return result["result"] == 'good'
 
 
 
@@ -305,17 +228,24 @@ async def loadCountdown(bot, countdown):
     ----------
     bot : commands.Bot
         The bot to load messages with
-    countdown : Countdown
-        The countdown to load messages for
+    cur : psycopg.cursor
+        The database cursor
+    countdown : int
+        The ID of the countdown to load messages for
     """
 
-    # Clear countdown
-    countdown.messages = []
+    with bot.db_connection.cursor() as cur:
+        # Clear countdown
+        cur.execute("CALL clearCountdown(%s);", (countdown,))
 
-    # Get Discord messages
-    rawMessages = [message async for message in bot.get_channel(countdown.id).history(limit=10100)]
-    rawMessages.reverse()
+        # Get Discord messages
+        messages = [message async for message in
+                       bot.get_channel(countdown).history(limit=10100)]
+        messages.reverse()
 
-    # Add messages to countdown
-    for rawMessage in rawMessages:
-        await addMessage(countdown, rawMessage)
+        # Add messages to countdown
+        for message in messages:
+            await addMessage(cur, message)
+
+    # Commit changes
+    bot.db_connection.commit()

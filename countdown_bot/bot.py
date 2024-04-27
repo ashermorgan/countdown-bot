@@ -6,15 +6,14 @@ import logging
 
 # Import modules
 from . import analyticsCog, utilitiesCog
-from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getCountdown, getPrefix
-from .models import EmptyCountdownError
+from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getPrefix
 
 
 
 class CountdownBot(commands.Bot):
-    def __init__(self, databaseSessionMaker, prefixes):
+    def __init__(self, db_connection, prefixes):
         # Set properties
-        self.databaseSessionMaker = databaseSessionMaker
+        self.db_connection = db_connection
         self.prefixes = prefixes
         self.logger = logging.getLogger(__name__)
 
@@ -23,13 +22,13 @@ class CountdownBot(commands.Bot):
         intents.message_content = True
 
         # Initialize bot
-        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.databaseSessionMaker, ctx, self.prefixes), intents=intents)
+        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.db_connection, ctx, self.prefixes), intents=intents)
 
 
 
     async def setup_hook(self):
-        await self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker))
-        await self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker))
+        await self.add_cog(utilitiesCog.Utilities(self, self.db_connection))
+        await self.add_cog(analyticsCog.Analytics(self, self.db_connection))
 
 
 
@@ -62,11 +61,9 @@ class CountdownBot(commands.Bot):
             await obj.channel.send(embed=embed)
 
         # Parse countdown message
-        with self.databaseSessionMaker() as session:
-            countdown = getCountdown(session, obj.channel.id)
-            if (countdown):
-                # Add message to countdown and commit changes
-                if (await addMessage(countdown, obj)): session.commit()
+        with self.db_connection.cursor() as cur:
+            if (await addMessage(cur, obj)):
+                self.db_connection.commit()
 
         # Run commands
         try:
@@ -81,6 +78,9 @@ class CountdownBot(commands.Bot):
 
 
     async def on_command_error(self, ctx, error):
+        # Rollback database transaction
+        self.db_connection.rollback()
+
         # Send error embed
         embed=discord.Embed(title=":warning: Error", description=str(error), color=COLORS["error"])
         if (isinstance(error, commands.CommandNotFound)):
@@ -89,8 +89,6 @@ class CountdownBot(commands.Bot):
             embed.description = f"Countdown not found"
         elif (isinstance(error.original, ContributorNotFound)):
             embed.description = f"Contributor not found: `{error.original.args[0]}`"
-        elif (isinstance(error.original, EmptyCountdownError)):
-            embed.description = f"The countdown is empty"
         elif (isinstance(error.original, CommandError)):
             embed.description = error.original.args[0]
         else:
