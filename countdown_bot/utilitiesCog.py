@@ -3,15 +3,13 @@ import discord
 from discord.ext import commands
 
 # Import modules
-from .botUtilities import COLORS, CommandError, isCountdown, getContextCountdown, getCountdown, loadCountdown, getContextCountdown2, CountdownNotFound
-from .models import Countdown, Prefix, Reaction
+from .botUtilities import COLORS, CommandError, CountdownNotFound, isCountdown, loadCountdown, getContextCountdown
 
 
 
 class Utilities(commands.Cog):
-    def __init__(self, bot, databaseSessionMaker, db_connection):
+    def __init__(self, bot, db_connection):
         self.bot = bot
-        self.databaseSessionMaker = databaseSessionMaker
         self.db_connection = db_connection
         self.bot.remove_command("help")
 
@@ -70,7 +68,7 @@ class Utilities(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
 
             if not countdown:
                 raise CountdownNotFound()

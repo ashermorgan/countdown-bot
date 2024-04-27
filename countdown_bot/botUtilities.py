@@ -2,10 +2,6 @@
 import discord
 import re
 
-# Import modules
-from .models import Countdown, Message
-
-
 
 COLORS = {
     "error": 0xD52C42,
@@ -24,6 +20,22 @@ class ContributorNotFound(Exception):
 class CountdownNotFound(Exception):
     """Raised when a matching countdown cannot be found"""
     pass
+
+
+
+# The rules for awarding leaderboard points
+POINT_RULES = {
+    "r1": ("First Number", 0),
+    "r2": ("1000s", 1000),
+    "r3": ("1001s", 500),
+    "r4": ("200s", 200),
+    "r5": ("201s", 100),
+    "r6": ("100s", 100),
+    "r7": ("101s", 50),
+    # "r8": ("Prime Numbers", 15),
+    "r8": ("Odd Numbers", 12),
+    "r9": ("Even Numbers", 10),
+}
 
 
 
@@ -46,29 +58,6 @@ async def getUsername(bot, id):
 
     user = await bot.fetch_user(id)
     return f"{user.name}#{user.discriminator}"
-
-
-
-async def getNickname(bot, server, id):
-    """
-    Get a user's nickname in a server
-
-    Parameters
-    ----------
-    bot : commands.Bot
-        The bot
-    server : int
-        The server ID
-    id : int
-        The user ID
-
-    Returns
-    -------
-    str
-        The nickname
-    """
-
-    return (await (bot.get_guild(server)).fetch_member(id)).nick or await getUsername(bot, id)
 
 
 
@@ -103,27 +92,6 @@ async def getContributor(bot, countdown, text):
 
 
 
-def getCountdown(session, id):
-    """
-    Get a countdown object
-
-    Parameters
-    ----------
-    session : sqlalchemy.orm.Session
-        The database session to use
-    id : int
-        The countdown id
-
-    Returns
-    -------
-    Countdown
-        The Countdown
-    """
-
-    return session.query(Countdown).filter(Countdown.id == id).first()
-
-
-
 def isCountdown(cur, id):
     """
     Determine whether a channel is a countdown
@@ -147,45 +115,7 @@ def isCountdown(cur, id):
 
 
 
-def getContextCountdown(session, ctx):
-    """
-    Get the most relevant countdown to a certain context
-
-    Parameters
-    ----------
-    session : sqlalchemy.orm.Session
-        The database session to use
-    ctx : discord.ext.commands.Context
-        The context
-
-    Returns
-    -------
-    Countdown
-        The countdown
-
-    Raises
-    ------
-    CountdownNotFound
-        If a matching countdown cannot be found
-    """
-
-    if (isinstance(ctx.channel, discord.channel.TextChannel)):
-        # Countdown channel
-        countdown = getCountdown(session, ctx.channel.id)
-        if (countdown): return countdown
-
-        # Server with countdown channel: get first countdown in this server that use the current prefix
-        countdown = session.query(Countdown).filter(Countdown.server_id == ctx.channel.guild.id and ctx.prefix in [x.value for x in Countdown.prefixes]).first()
-        if (countdown): return countdown
-
-    if (isinstance(ctx.channel, discord.channel.DMChannel)):
-        # DM with user who has contributed to a countdown: get the first countdown they ever contributed to
-        firstMessage = session.query(Message).filter(Message.author_id == ctx.author.id).order_by(Message.timestamp).first()
-        if (firstMessage): return firstMessage.countdown
-
-    raise CountdownNotFound()
-
-def getContextCountdown2(cur, ctx):
+def getContextCountdown(cur, ctx):
     """
     Get the most relevant countdown to a certain context
 

@@ -10,15 +10,13 @@ import re
 import tempfile
 
 # Import modules
-from .botUtilities import COLORS, getContextCountdown, getUsername, getContributor, CommandError, CountdownNotFound, getContextCountdown2
-from .models import POINT_RULES
+from .botUtilities import COLORS, POINT_RULES, CommandError, CountdownNotFound, getUsername, getContributor, getContextCountdown
 
 
 
 class Analytics(commands.Cog):
-    def __init__(self, bot, databaseSessionMaker, db_connection):
+    def __init__(self, bot, db_connection):
         self.bot = bot
-        self.databaseSessionMaker = databaseSessionMaker
         self.db_connection = db_connection
 
 
@@ -48,7 +46,7 @@ class Analytics(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
             if not countdown:
                 raise CountdownNotFound()
 
@@ -151,7 +149,7 @@ class Analytics(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
             if not countdown:
                 raise CountdownNotFound()
 
@@ -227,7 +225,7 @@ class Analytics(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
             if not countdown:
                 raise CountdownNotFound()
 
@@ -322,7 +320,7 @@ class Analytics(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
             if not countdown:
                 raise CountdownNotFound()
 
@@ -404,7 +402,7 @@ class Analytics(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
             if not countdown:
                 raise CountdownNotFound()
 
@@ -482,7 +480,7 @@ class Analytics(commands.Cog):
 
         with self.db_connection.cursor() as cur:
             # Get countdown channel
-            countdown = getContextCountdown2(cur, ctx)
+            countdown = getContextCountdown(cur, ctx)
             if not countdown:
                 raise CountdownNotFound()
 

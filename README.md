@@ -15,7 +15,7 @@ A Discord bot that facilitates countdowns and generates detailed countdown analy
     ```
     TOKEN=...
     PREFIX=!
-    DATABASE=sqlite:///data.sqlite3
+    DATABASE=postgresql://...
     LOG_FILE=log.txt
     LOG_LEVEL=INFO
     ```

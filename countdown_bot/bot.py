@@ -6,17 +6,15 @@ import logging
 
 # Import modules
 from . import analyticsCog, utilitiesCog
-from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getCountdown, getPrefix
-from .models import EmptyCountdownError
+from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotFound, CommandError, getPrefix
 
 
 
 class CountdownBot(commands.Bot):
-    def __init__(self, databaseSessionMaker, prefixes, db_connection):
+    def __init__(self, db_connection, prefixes):
         # Set properties
-        self.databaseSessionMaker = databaseSessionMaker
-        self.prefixes = prefixes
         self.db_connection = db_connection
+        self.prefixes = prefixes
         self.logger = logging.getLogger(__name__)
 
         # Get intents
@@ -29,8 +27,8 @@ class CountdownBot(commands.Bot):
 
 
     async def setup_hook(self):
-        await self.add_cog(utilitiesCog.Utilities(self, self.databaseSessionMaker, self.db_connection))
-        await self.add_cog(analyticsCog.Analytics(self, self.databaseSessionMaker, self.db_connection))
+        await self.add_cog(utilitiesCog.Utilities(self, self.db_connection))
+        await self.add_cog(analyticsCog.Analytics(self, self.db_connection))
 
 
 
@@ -91,8 +89,6 @@ class CountdownBot(commands.Bot):
             embed.description = f"Countdown not found"
         elif (isinstance(error.original, ContributorNotFound)):
             embed.description = f"Contributor not found: `{error.original.args[0]}`"
-        elif (isinstance(error.original, EmptyCountdownError)):
-            embed.description = f"The countdown is empty"
         elif (isinstance(error.original, CommandError)):
             embed.description = error.original.args[0]
         else:
