@@ -11,10 +11,10 @@ from .botUtilities import addMessage, COLORS, CountdownNotFound, ContributorNotF
 
 
 class CountdownBot(commands.Bot):
-    def __init__(self, db_connection, prefixes):
+    def __init__(self, db_connection, prefix):
         # Set properties
         self.db_connection = db_connection
-        self.prefixes = prefixes
+        self.prefix = prefix
         self.logger = logging.getLogger(__name__)
 
         # Get intents
@@ -22,7 +22,7 @@ class CountdownBot(commands.Bot):
         intents.message_content = True
 
         # Initialize bot
-        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.db_connection, ctx, self.prefixes), intents=intents)
+        super().__init__(command_prefix=lambda bot, ctx: getPrefix(self.db_connection, ctx, self.prefix), intents=intents)
 
 
 

@@ -45,7 +45,7 @@ class Core(commands.Cog):
 
             # Create countdown
             cur.execute("CALL createCountdown(%s, %s, %s);",
-                (ctx.channel.id, ctx.channel.guild.id, self.bot.prefixes[0]))
+                (ctx.channel.id, ctx.channel.guild.id, self.bot.prefix))
 
             # Send initial response
             self.bot.logger.info(f"Activated {self.bot.get_channel(ctx.channel.id)} (ID {ctx.channel.id}) as a countdown")

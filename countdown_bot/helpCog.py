@@ -19,13 +19,16 @@ class Help(commands.Cog):
         # Log status
         self.logger.info(f"Added to {guild} (ID {guild.id})")
 
+        # Get command prefix
+        prefix = self.bot.prefixes[0]
+
         # Create embed
         embed=discord.Embed(title=":rocket: Getting Started with countdown-bot", color=COLORS["embed"])
         embed.description = f"Thanks for adding me to your server! Here are some steps for getting started:\n"
-        embed.description += f"**1.** View help information using the `{self.bot.prefixes[0]}help` command\n"
-        embed.description += f"**2.** Activate a new countdown channel using the `{self.bot.prefixes[0]}activate` command\n"
-        embed.description += f"**3.** Change my settings using the `{self.bot.prefixes[0]}config` command\n"
-        embed.description += f"**4.** View countdown analytics using the `{self.bot.prefixes[0]}analytics` command\n"
+        embed.description += f"**1.** View help information using the `{prefix}help` command\n"
+        embed.description += f"**2.** Activate a new countdown channel using the `{prefix}activate` command\n"
+        embed.description += f"**3.** Change my settings using the `{prefix}config` command\n"
+        embed.description += f"**4.** View countdown analytics using the `{prefix}analytics` command\n"
 
         # Send embed
         await ctx.guild.system_channel.send(embed=embed)

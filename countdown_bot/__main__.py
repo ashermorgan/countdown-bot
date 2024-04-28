@@ -23,5 +23,5 @@ logging.basicConfig(
 db_connection = psycopg.connect(os.environ.get("DATABASE"), row_factory=psycopg.rows.dict_row)
 
 # Run bot
-bot = CountdownBot(db_connection, [os.environ.get("PREFIX", "!")])
+bot = CountdownBot(db_connection, os.environ.get("PREFIX", "!"))
 bot.run(os.environ.get("TOKEN"))
