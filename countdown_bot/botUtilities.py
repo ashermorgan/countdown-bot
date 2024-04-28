@@ -53,11 +53,11 @@ async def getUsername(bot, id):
     Returns
     -------
     str
-        The username (ex: "user#0000")
+        The username
     """
 
     user = await bot.fetch_user(id)
-    return f"{user.name}#{user.discriminator}"
+    return user.name
 
 
 
