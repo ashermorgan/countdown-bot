@@ -1,6 +1,7 @@
 # Import dependencies
 import discord
 from discord.ext import commands
+from datetime import timedelta
 
 # Import modules
 from .botUtilities import COLORS, CommandError, CountdownNotFound, isCountdown, loadCountdown, getContextCountdown, addMessage
@@ -90,7 +91,7 @@ class Core(commands.Cog):
                 embed.description += f"**Command Prefixes:** `{'`, `'.join(prefixes)}`\n"
 
                 cur.execute("CALL getTimezone(%s, null);", (countdown,))
-                timezone = cur.fetchone()["_timezone"]
+                timezone = cur.fetchone()["_timezone"].total_seconds() / 3600
                 if (timezone >= 0):
                     embed.description += f"**Countdown Timezone:** UTC+{timezone:.2f}\n"
                 else:
@@ -113,15 +114,16 @@ class Core(commands.Cog):
                 raise CommandError("Please provide a value for the setting")
             elif (key in ["tz", "timezone"]):
                 try:
-                    timezone = float(args[0])
+                    offset = float(args[0])
+                    timezone = timedelta(hours = offset)
                 except:
                     raise CommandError(f"Invalid timezone: `{args[0]}`")
                 else:
                     cur.execute("CALL setTimezone(%s, %s);", (countdown, timezone))
-                    if (timezone >= 0):
-                        embed.description = f"Timezone set to UTC+{timezone:.2f}\n"
+                    if (offset >= 0):
+                        embed.description = f"Timezone set to UTC+{offset:.2f}\n"
                     else:
-                        embed.description = f"Timezone set to UTC-{abs(timezone):.2f}\n"
+                        embed.description = f"Timezone set to UTC-{abs(offset):.2f}\n"
             elif (key in ["prefix", "prefixes"]):
                 cur.execute("CALL setPrefixes(%s, %s);", (countdown, list(args)))
                 embed.description = f"Prefixes updated"

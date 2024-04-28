@@ -207,11 +207,11 @@ $$;
 -- Get the timezone of a countdown
 CREATE PROCEDURE getTimezone (
     _countdownID IN BIGINT, -- The countdown channel ID
-    _timezone OUT DECIMAL   -- The timezone as a UTC offest
+    _timezone OUT INTERVAL  -- The timezone as a UTC offest
 )
 LANGUAGE plpgsql AS $$
 BEGIN
-    SELECT extract(minute FROM timezone) / 60
+    SELECT timezone
     INTO _timezone
     FROM countdowns
     WHERE countdownID = _countdownID;
@@ -221,13 +221,12 @@ $$;
 -- Set the timezone of a countdown
 CREATE PROCEDURE setTimezone (
     _countdownID IN BIGINT, -- The countdown channel ID
-    _timezone IN FLOAT      -- The timezone as a UTC offest
+    _timezone IN INTERVAL   -- The timezone as a UTC offest
 )
 LANGUAGE plpgsql AS $$
 BEGIN
     UPDATE countdowns
-    SET timezone = make_interval(0,0,0,0, floor(_timezone)::integer,
-        (_timezone * 60)::integer % 60)
+    SET timezone = _timezone
     WHERE countdownID = _countdownID;
 END
 $$;
