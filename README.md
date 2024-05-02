@@ -36,3 +36,16 @@ https://discordapp.com/oauth2/authorize?client_id=BOT_ID_HERE&scope=bot&permissi
 ```
 
 Send `!help` to the bot get a list of commands and a description of the bot's behavior
+
+## Screenshots
+![Help information](screenshots/help.png)
+
+![Countdown channel moderation](screenshots/countdown.png)
+
+![Progress analytics](screenshots/progress.png)
+
+![Contributors analytics](screenshots/contributors.png)
+
+![Heatmap analytics](screenshots/heatmap.png)
+
+![ETA analytics](screenshots/eta.png)
