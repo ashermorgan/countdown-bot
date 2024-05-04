@@ -24,7 +24,7 @@ LANGUAGE plpgsql AS $$
 DECLARE
     progress INT;
 BEGIN
-    -- Get total from first message
+    -- Get total countdown progress
     SELECT count(messageID)
     INTO progress
     FROM messages
@@ -61,7 +61,7 @@ BEGIN
     INTO total, startTime
     FROM messages
     WHERE countdownID = _countdownID
-    ORDER BY timestamp ASC
+    ORDER BY messageID ASC
     LIMIT 1;
 
     -- Get timezone
@@ -78,8 +78,7 @@ BEGIN
             (extract(epoch FROM timestamp) - startTime) / (total - value)
         ) AT TIME ZONE _timezone AS eta
     FROM messages
-    WHERE countdownID = _countdownID
-        AND value != total
+    WHERE countdownID = _countdownID AND value != total
     ORDER BY messageID;
 END
 $$;
@@ -149,7 +148,7 @@ BEGIN
     INTO total
     FROM messages
     WHERE countdownID = _countdownID
-    ORDER BY timestamp ASC
+    ORDER BY messageID ASC
     LIMIT 1;
 
     -- Calculator percentage for each user for each message
@@ -159,7 +158,7 @@ BEGIN
         users.userID,
         (
             sum(CASE messages.userID WHEN users.userID THEN 1 ELSE 0 END)
-            OVER (PARTITION BY users.userID ORDER BY timestamp)
+            OVER (PARTITION BY users.userID ORDER BY messageID)
         )::float / (total - value + 1)
     FROM messages, (
         SELECT DISTINCT messages.userID
@@ -194,7 +193,7 @@ BEGIN
     INTO total
     FROM messages
     WHERE countdownID = _countdownID
-    ORDER BY timestamp ASC
+    ORDER BY messageID ASC
     LIMIT 1;
 
     -- Get progress from last message
@@ -202,7 +201,7 @@ BEGIN
     INTO progress
     FROM messages
     WHERE countdownID = _countdownID
-    ORDER BY timestamp DESC
+    ORDER BY messageID DESC
     LIMIT 1;
 
     RETURN QUERY
@@ -319,7 +318,7 @@ BEGIN
     INTO total, startTime AT TIME ZONE _timezone
     FROM messages
     WHERE messages.countdownID = _countdownID
-    ORDER BY messages.timestamp ASC
+    ORDER BY messageID ASC
     LIMIT 1;
 
     -- Get current and endTime from last message
@@ -327,7 +326,7 @@ BEGIN
     INTO current, endTime AT TIME ZONE _timezone
     FROM messages
     WHERE messages.countdownID = _countdownID
-    ORDER BY messages.timestamp DESC
+    ORDER BY messageID DESC
     LIMIT 1;
 
     -- Calculate progress and percent
@@ -358,7 +357,7 @@ BEGIN
         timestamp AT TIME ZONE _timezone,
         CASE
             WHEN value = 0 THEN '0'
-            ELSE LEAD(timestamp, 1, NOW()) OVER (ORDER BY timestamp) - timestamp
+            ELSE LEAD(timestamp, 1, NOW()) OVER (ORDER BY messageID) - timestamp
         END AS delta
     INTO longestBreakStart, longestBreak
     FROM messages
