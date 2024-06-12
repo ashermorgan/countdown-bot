@@ -24,4 +24,4 @@ db_connection = psycopg.connect(os.environ.get("DATABASE"), row_factory=psycopg.
 
 # Run bot
 bot = CountdownBot(db_connection, os.environ.get("PREFIX", "!"))
-bot.run(os.environ.get("TOKEN"))
+bot.run(os.environ.get("BOT_TOKEN"))

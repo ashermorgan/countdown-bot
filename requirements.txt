@@ -1,4 +1,4 @@
 discord
 matplotlib
-psycopg2
+psycopg
 python-dotenv
