@@ -1,4 +1,4 @@
-FROM postgres:alpine
+FROM docker.io/postgres:alpine
 
 ADD models/ddl.sql /docker-entrypoint-initdb.d
 ADD models/dml-analytics.sql /docker-entrypoint-initdb.d

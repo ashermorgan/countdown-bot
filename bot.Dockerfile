@@ -1,6 +1,6 @@
-FROM python:3-alpine
+FROM docker.io/python:3-alpine
 
-RUN apk update && apk add gcc musl-dev postgresql-dev python3-dev
+RUN apk update && apk add gcc g++ musl-dev postgresql-dev python3-dev
 
 WORKDIR /app
 

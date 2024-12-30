@@ -14,14 +14,14 @@ analytics
 4. Send `!help` to the bot to get instructions for getting started
 
 ### Running with Docker
-Create the `.env` file and add settings:
+Create an `.env` file and add the following variables:
 
 ```
 BOT_TOKEN=...
 DB_PASSWORD=...
 ```
 
-Start docker containers:
+Start the docker containers:
 
 ```
 docker compose up
@@ -34,7 +34,7 @@ Install the Python dependencies
 pip install -r requirements.txt
 ```
 
-Create `.env` file and add settings:
+Create an `.env` file and add the following variables:
 
 ```
 BOT_TOKEN=...
